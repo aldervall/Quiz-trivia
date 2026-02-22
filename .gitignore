@@ -4,3 +4,4 @@ certs/
 questions-db.json
 translation-cache.json
 .claude/
+CLAUDE.md
