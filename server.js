@@ -68,15 +68,20 @@ a{display:block;padding:1rem 2.5rem;border-radius:.75rem;font-size:1.2rem;font-w
 </body></html>`);
 });
 
-// Redirect /join → /player/index.html
+// Redirect /join → /player/index.html (preserves ?room= query param)
 app.get('/join', (req, res) => {
-  res.redirect('/player/index.html');
+  const room = req.query.room ? `?room=${req.query.room}` : '';
+  res.redirect('/player/index.html' + room);
 });
 
-// QR code endpoint (SVG)
+// QR code endpoint (SVG) — accepts optional ?room=XXXX
 app.get('/api/qr', async (req, res) => {
   try {
-    const svg = await QRCode.toString(PLAYER_URL, { type: 'svg', margin: 1 });
+    const roomCode = req.query.room;
+    const joinUrl = roomCode
+      ? `${PUBLIC_SCHEME}://${PUBLIC_HOST}/join?room=${roomCode}`
+      : PLAYER_URL;
+    const svg = await QRCode.toString(joinUrl, { type: 'svg', margin: 1 });
     res.setHeader('Content-Type', 'image/svg+xml');
     res.send(svg);
   } catch (err) {
@@ -131,7 +136,8 @@ const server = USE_HTTPS
 const wss = new WebSocketServer({ noServer: true });
 
 server.on('upgrade', (req, socket, head) => {
-  if (req.url === '/ws/host' || req.url === '/ws/player') {
+  const pathname = new URL(req.url, 'http://localhost').pathname;
+  if (pathname === '/ws/host' || pathname === '/ws/player') {
     wss.handleUpgrade(req, socket, head, (ws) => {
       wss.emit('connection', ws, req);
     });
@@ -140,48 +146,76 @@ server.on('upgrade', (req, socket, head) => {
   }
 });
 
-// ─── Broadcast helpers ───────────────────────────────────────────────────────
+// ─── Room registry ───────────────────────────────────────────────────────────
 
-// All connected host and player sockets
-const hostSockets = new Set();
-const playerSockets = new Set();
+// roomCode → { code, game, hostSockets, playerSockets, language }
+const rooms = new Map();
+// WebSocket → roomCode
+const wsToRoom = new Map();
 
-function broadcastAll(msg, targetWs) {
-  const str = JSON.stringify(msg);
-  if (targetWs) {
-    if (targetWs.readyState === 1) targetWs.send(str);
-    return;
-  }
-  for (const ws of [...hostSockets, ...playerSockets]) {
-    if (ws.readyState === 1) ws.send(str);
-  }
+function generateRoomCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // excludes I, O (visually ambiguous)
+  let code;
+  do {
+    code = Array.from({ length: 4 }, () =>
+      chars[Math.floor(Math.random() * chars.length)]
+    ).join('');
+  } while (rooms.has(code));
+  return code;
 }
 
-function broadcastHosts(msg) {
-  const str = JSON.stringify(msg);
-  for (const ws of hostSockets) {
-    if (ws.readyState === 1) ws.send(str);
-  }
+function createRoomBroadcast(roomCode) {
+  return (msg, targetWs) => {
+    const str = JSON.stringify(msg);
+    if (targetWs) {
+      if (targetWs.readyState === 1) targetWs.send(str);
+      return;
+    }
+    const room = rooms.get(roomCode);
+    if (!room) return;
+    for (const ws of [...room.hostSockets, ...room.playerSockets]) {
+      if (ws.readyState === 1) ws.send(str);
+    }
+  };
 }
-
-// ─── Game instance ───────────────────────────────────────────────────────────
-
-const game = new Game(broadcastAll);
-let currentLanguage = 'en';
 
 // ─── WebSocket connection handler ────────────────────────────────────────────
 
 wss.on('connection', (ws, req) => {
-  const isHost = req.url === '/ws/host';
-  const isPlayer = req.url === '/ws/player';
+  const url = new URL(req.url, 'http://localhost');
+  const isHost = url.pathname === '/ws/host';
+  const isPlayer = url.pathname === '/ws/player';
+  let roomCode = (url.searchParams.get('room') || '').toUpperCase() || null;
 
   if (isHost) {
-    hostSockets.add(ws);
-    // Send current state to newly connected host
-    ws.send(JSON.stringify({ type: 'HOST_CONNECTED', playerCount: game.playerCount }));
+    // Create a new room if no code provided or the code is unknown
+    if (!roomCode || !rooms.has(roomCode)) {
+      roomCode = generateRoomCode();
+      const broadcast = createRoomBroadcast(roomCode);
+      rooms.set(roomCode, {
+        code: roomCode,
+        game: new Game(broadcast),
+        hostSockets: new Set(),
+        playerSockets: new Set(),
+        language: 'en',
+      });
+    }
+    const room = rooms.get(roomCode);
+    room.hostSockets.add(ws);
+    wsToRoom.set(ws, roomCode);
+    ws.send(JSON.stringify({ type: 'HOST_CONNECTED', roomCode, playerCount: room.game.playerCount }));
+
   } else if (isPlayer) {
-    playerSockets.add(ws);
-    ws.send(JSON.stringify({ type: 'CONNECTED', lang: currentLanguage }));
+    if (!roomCode || !rooms.has(roomCode)) {
+      ws.send(JSON.stringify({ type: 'ERROR', code: 'ROOM_NOT_FOUND', message: 'Room not found. Check the room code.' }));
+      ws.close();
+      return;
+    }
+    const room = rooms.get(roomCode);
+    room.playerSockets.add(ws);
+    wsToRoom.set(ws, roomCode);
+    ws.send(JSON.stringify({ type: 'CONNECTED', lang: room.language }));
+
   } else {
     ws.close(4000, 'Invalid path');
     return;
@@ -194,16 +228,28 @@ wss.on('connection', (ws, req) => {
     } catch {
       return;
     }
-
-    handleMessage(ws, isHost, msg);
+    const code = wsToRoom.get(ws);
+    const room = rooms.get(code);
+    if (!room) return;
+    handleMessage(ws, isHost, msg, room);
   });
 
   ws.on('close', () => {
+    const code = wsToRoom.get(ws);
+    const room = rooms.get(code);
+    wsToRoom.delete(ws);
+    if (!room) return;
     if (isHost) {
-      hostSockets.delete(ws);
+      room.hostSockets.delete(ws);
     } else {
-      playerSockets.delete(ws);
-      game.removePlayer(ws);
+      room.playerSockets.delete(ws);
+      room.game.removePlayer(ws);
+    }
+    // Clean up idle rooms with no connected sockets
+    const totalSockets = room.hostSockets.size + room.playerSockets.size;
+    const idleState = room.game.state === 'LOBBY' || room.game.state === 'GAME_OVER';
+    if (totalSockets === 0 && idleState) {
+      rooms.delete(code);
     }
   });
 
@@ -214,7 +260,7 @@ wss.on('connection', (ws, req) => {
 
 // ─── Message handler ─────────────────────────────────────────────────────────
 
-function handleMessage(ws, isHost, msg) {
+function handleMessage(ws, isHost, msg, room) {
   const { type } = msg;
 
   if (isHost) {
@@ -229,14 +275,14 @@ function handleMessage(ws, isHost, msg) {
         const gameDifficulty = ['easy', 'medium', 'hard'].includes(msg.gameDifficulty)
           ? msg.gameDifficulty
           : 'easy';
-        game.startGame(categories, questionCount, gameDifficulty, currentLanguage).catch(console.error);
+        room.game.startGame(categories, questionCount, gameDifficulty, room.language).catch(console.error);
         break;
       }
       case 'SKIP':
-        game.skipReveal();
+        room.game.skipReveal();
         break;
       case 'RESTART':
-        game.restart();
+        room.game.restart();
         break;
       case 'CONTINUE_GAME': {
         const categories = Array.isArray(msg.categories) && msg.categories.length > 0
@@ -245,13 +291,13 @@ function handleMessage(ws, isHost, msg) {
           ? Math.min(msg.questionCount, 50) : 20;
         const gameDifficulty = ['easy', 'medium', 'hard'].includes(msg.gameDifficulty)
           ? msg.gameDifficulty : 'easy';
-        game.continueGame(categories, questionCount, gameDifficulty).catch(console.error);
+        room.game.continueGame(categories, questionCount, gameDifficulty).catch(console.error);
         break;
       }
       case 'SET_LANGUAGE':
         if (typeof msg.lang === 'string' && /^[a-z]{2}$/.test(msg.lang)) {
-          currentLanguage = msg.lang;
-          broadcastAll({ type: 'LANGUAGE_SET', lang: currentLanguage });
+          room.language = msg.lang;
+          createRoomBroadcast(room.code)({ type: 'LANGUAGE_SET', lang: room.language });
         }
         break;
     }
@@ -269,7 +315,7 @@ function handleMessage(ws, isHost, msg) {
         break;
       }
       ws.send(JSON.stringify({ type: 'JOIN_OK', username }));
-      const result = game.addPlayer(ws, username);
+      const result = room.game.addPlayer(ws, username);
       if (!result.ok) {
         // If game rejected after we sent JOIN_OK, correct it with an error
         ws.send(JSON.stringify({ type: 'ERROR', code: result.code, message: result.message }));
@@ -277,7 +323,7 @@ function handleMessage(ws, isHost, msg) {
       break;
     }
     case 'ANSWER': {
-      game.receiveAnswer(ws, msg.questionId, msg.answerId);
+      room.game.receiveAnswer(ws, msg.questionId, msg.answerId);
       break;
     }
   }

@@ -300,6 +300,9 @@
 <div id="join" class="screen active">
   <h1>🎮 Quiz Night</h1>
   <p>Enter your name to join the game</p>
+  <input id="room-input" type="text" maxlength="4" placeholder="Room code (e.g. ABCD)"
+    autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false"
+    style="width:100%;padding:1rem 1.25rem;font-size:1.3rem;background:var(--card);color:var(--text);border:2px solid rgba(255,255,255,0.15);border-radius:0.75rem;outline:none;transition:border-color 0.2s;text-align:center;text-transform:uppercase;letter-spacing:0.2em;">
   <input id="username-input" type="text" maxlength="20" placeholder="Your name" autocomplete="off" autocorrect="off" spellcheck="false">
   <button id="join-btn">Join Game</button>
   <div id="join-error"></div>
@@ -413,14 +416,23 @@
   // Apply browser language on load
   applyPlayerTranslations();
 
-  const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/player`;
+  // Parse room code from URL (?room=XXXX from QR scan or manual entry)
+  const _urlParams = new URLSearchParams(window.location.search);
+  let roomCode = (_urlParams.get('room') || '').toUpperCase() || null;
+
   let ws;
+  let connectGen = 0; // incremented each time connect() is called; guards stale WS events
   let myUsername = null;
   let currentQuestionId = null;
   let myLastAnswer = null;
   let myScore = 0;
   let myRank = null;
   let myDelta = 0;
+
+  function buildWsUrl(room) {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    return `${proto}://${location.host}/ws/player?room=${room}`;
+  }
 
   // ── Screens ───────────────────────────────────────────────────────────────
   function show(id) {
@@ -430,19 +442,22 @@
 
   // ── WebSocket ─────────────────────────────────────────────────────────────
   function connect() {
-    ws = new WebSocket(WS_URL);
+    const gen = ++connectGen;
+    ws = new WebSocket(buildWsUrl(roomCode));
     document.getElementById('reconnecting').classList.remove('show');
 
     ws.addEventListener('open', () => {
-      // If we already have a username, rejoin
-      if (myUsername) {
-        send({ type: 'JOIN', username: myUsername });
-      }
+      if (gen !== connectGen) return; // stale
+      if (myUsername) send({ type: 'JOIN', username: myUsername });
     });
 
-    ws.addEventListener('message', (e) => handleMsg(JSON.parse(e.data)));
+    ws.addEventListener('message', (e) => {
+      if (gen !== connectGen) return; // stale
+      handleMsg(JSON.parse(e.data));
+    });
 
     ws.addEventListener('close', () => {
+      if (gen !== connectGen) return; // stale — a newer connection already exists
       if (myUsername) {
         document.getElementById('reconnecting').classList.add('show');
         setTimeout(connect, 2000);
@@ -456,18 +471,37 @@
 
   // ── Join ──────────────────────────────────────────────────────────────────
   const joinBtn = document.getElementById('join-btn');
+  const roomInput = document.getElementById('room-input');
   const usernameInput = document.getElementById('username-input');
   const joinError = document.getElementById('join-error');
 
+  // Pre-fill room code from URL and lock it if provided via QR scan
+  if (roomCode) {
+    roomInput.value = roomCode;
+    roomInput.readOnly = true;
+    roomInput.style.opacity = '0.7';
+  }
+
   joinBtn.addEventListener('click', doJoin);
   usernameInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') doJoin(); });
+  roomInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') usernameInput.focus(); });
+
+  // Force uppercase as user types
+  roomInput.addEventListener('input', () => {
+    const pos = roomInput.selectionStart;
+    roomInput.value = roomInput.value.toUpperCase();
+    roomInput.setSelectionRange(pos, pos);
+  });
 
   function doJoin() {
+    const room = roomInput.value.trim().toUpperCase();
     const name = usernameInput.value.trim();
+    if (!room || room.length !== 4) { joinError.textContent = 'Enter a 4-letter room code.'; return; }
     if (!name) { joinError.textContent = P('nameRequired'); return; }
     joinError.textContent = '';
+    roomCode = room;
     myUsername = name;
-    send({ type: 'JOIN', username: name });
+    connect(); // creates new WS; connectGen guards old WS events
   }
 
   // ── Answer buttons ────────────────────────────────────────────────────────
@@ -581,6 +615,11 @@
         break;
 
       case 'ERROR':
+        if (msg.code === 'ROOM_NOT_FOUND') {
+          // Unlock room input so player can try a different code
+          roomInput.readOnly = false;
+          roomInput.style.opacity = '';
+        }
         joinError.textContent = msg.message || 'Something went wrong.';
         myUsername = null;
         applyPlayerTranslations();
@@ -708,7 +747,6 @@
     show('gameover');
   }
 
-  connect();
 </script>
 </body>
 </html>

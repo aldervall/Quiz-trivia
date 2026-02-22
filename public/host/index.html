@@ -918,6 +918,15 @@
     .diff-btn { line-height: 1.25; text-align: center; }
     .diff-desc { font-size: 0.62rem; font-weight: 400; opacity: 0.65; margin-top: 0.1rem; white-space: nowrap; letter-spacing: 0; }
 
+    /* ── Room code display ── */
+    #room-code-wrap { text-align: center; }
+    .room-label { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.15em; color: #888; }
+    #room-code-display {
+      font-size: 2.4rem; font-weight: 900; letter-spacing: 0.3em;
+      background: linear-gradient(90deg, #9f44d3, #00c2ff);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    }
+
     /* ── Category groups ── */
     .cat-group-header {
       font-size: 1rem;
@@ -948,9 +957,13 @@
 
   <div id="lobby-right">
     <div id="qr-panel">
+      <div id="room-code-wrap">
+        <div class="room-label">ROOM CODE</div>
+        <div id="room-code-display">····</div>
+      </div>
       <div id="qr-scan-label">📷 Scan to Join</div>
       <div id="qr-frame">
-        <img id="qr-img" src="/api/qr" alt="QR Code">
+        <img id="qr-img" src="" alt="QR Code">
         <div class="qr-scan-line"></div>
       </div>
       <div id="qr-camera-hint">Point your phone camera at the code</div>
@@ -1222,14 +1235,24 @@
   });
 
   // ── WebSocket connection ──────────────────────────────────────────────────
-  const WS_URL = `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/ws/host`;
+  // Read existing room code from URL so page refresh reconnects to the same room
+  const _urlParams = new URLSearchParams(window.location.search);
+  let roomCode = (_urlParams.get('room') || '').toUpperCase() || null;
+
   let ws;
   let currentQuestion = null;
   let timerBarTimeout = null;
   let revealOverlayTimeout = null;
 
+  function buildHostWsUrl() {
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    return roomCode
+      ? `${proto}://${location.host}/ws/host?room=${roomCode}`
+      : `${proto}://${location.host}/ws/host`;
+  }
+
   function connect() {
-    ws = new WebSocket(WS_URL);
+    ws = new WebSocket(buildHostWsUrl());
     ws.addEventListener('open', () => console.log('Host WS connected'));
     ws.addEventListener('message', (e) => handleMsg(JSON.parse(e.data)));
     ws.addEventListener('close', () => { setTimeout(connect, 2000); });
@@ -1244,18 +1267,15 @@
     document.getElementById(id).classList.add('active');
   }
 
-  // ── QR & URL ─────────────────────────────────────────────────────────────
-  (async () => {
+  // ── QR load ──────────────────────────────────────────────────────────────
+  async function loadQR(code) {
     try {
-      const res = await fetch('/api/qr');
+      const res = await fetch(`/api/qr?room=${code}`);
       const svg = await res.text();
       const blob = new Blob([svg], { type: 'image/svg+xml' });
-      const url = URL.createObjectURL(blob);
-      document.getElementById('qr-img').src = url;
+      document.getElementById('qr-img').src = URL.createObjectURL(blob);
     } catch (e) { console.warn('QR fetch failed', e); }
-  })();
-
-  document.getElementById('qr-url').textContent = `${location.protocol}//${location.hostname}:${location.port}/join`;
+  }
 
   // ── Categories ───────────────────────────────────────────────────────────
   let allCategories = [];
@@ -1464,6 +1484,14 @@
   function handleMsg(msg) {
     switch (msg.type) {
       case 'HOST_CONNECTED':
+        roomCode = msg.roomCode;
+        // Persist room code in URL so a refresh reconnects to the same room
+        history.replaceState(null, '', `?room=${msg.roomCode}`);
+        document.getElementById('room-code-display').textContent = msg.roomCode;
+        loadQR(msg.roomCode);
+        document.getElementById('qr-url').textContent =
+          `${location.protocol}//${location.hostname}${location.port ? ':'+location.port : ''}/join?room=${msg.roomCode}`;
+        document.getElementById('player-count').textContent = msg.playerCount;
         break;
 
       case 'PLAYER_JOINED':
