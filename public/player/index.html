@@ -570,11 +570,13 @@
         break;
 
       case 'RESTARTED':
-        myUsername = null;
         myScore = 0;
         myRank = null;
-        show('join');
-        usernameInput.value = '';
+        if (myUsername) {
+          send({ type: 'JOIN', username: myUsername });
+        } else {
+          show('join');
+        }
         break;
 
       case 'ERROR':
