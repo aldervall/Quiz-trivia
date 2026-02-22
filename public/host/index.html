@@ -33,8 +33,8 @@
 
     /* ── LOBBY ── */
     #lobby {
-      grid-template-columns: 1fr 1fr;
-      grid-template-rows: auto auto 1fr auto auto;
+      grid-template-columns: 1fr 280px;
+      grid-template-rows: auto 1fr auto auto;
       gap: 1rem 1.5rem;
     }
     #lobby.active { display: grid; }
@@ -43,10 +43,10 @@
       grid-row: 1;
       text-align: center;
     }
-    #qr-panel     { grid-column: 1; grid-row: 2; }
-    #players-panel{ grid-column: 2; grid-row: 2; }
-    #category-panel { grid-column: 1 / -1; grid-row: 3; }
-    #lobby-controls { grid-column: 1 / -1; grid-row: 5; }
+    #category-panel { grid-column: 1; grid-row: 2 / 4; }
+    #qr-panel       { grid-column: 2; grid-row: 2; }
+    #players-panel  { grid-column: 2; grid-row: 3; }
+    #lobby-controls { grid-column: 1 / -1; grid-row: 4; }
     #lobby-header h1 {
       font-size: clamp(2rem, 4vw, 3.5rem);
       background: linear-gradient(90deg, #9f44d3, #00c2ff);
@@ -90,7 +90,7 @@
       border-radius: 0.6rem;
       overflow: hidden;
     }
-    #qr-frame img { width: min(280px, 38vw); border-radius: 0.4rem; background: #fff; padding: 8px; display: block; }
+    #qr-frame img { width: min(200px, 100%); border-radius: 0.4rem; background: #fff; padding: 8px; display: block; }
     /* Animated scan line */
     .qr-scan-line {
       position: absolute;
@@ -123,9 +123,7 @@
     }
     #category-panel h3 { margin-bottom: 0.6rem; color: #aaa; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.1em; }
     #category-list {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 0.35rem;
+      display: block;
     }
     .cat-item {
       display: flex;
@@ -933,9 +931,9 @@
     }
     .cat-group-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 0.25rem;
-      padding: 0.2rem 0;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.35rem;
+      padding: 0.25rem 0;
     }
   </style>
 </head>
