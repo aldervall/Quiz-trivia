@@ -97,13 +97,45 @@
     @keyframes blink { 0%, 80%, 100% { opacity: 0.2; } 40% { opacity: 1; } }
 
     /* ── QUESTION ── */
-    #question { gap: 1rem; width: 100%; }
-    #q-hint {
-      text-align: center;
-      color: #aaa;
-      font-size: 0.85rem;
-      padding-bottom: 0.25rem;
+    #question { gap: 0.75rem; width: 100%; }
+
+    #pq-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
     }
+    #pq-category {
+      background: var(--accent);
+      padding: 0.2rem 0.7rem;
+      border-radius: 2rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+    #pq-counter { color: #666; font-size: 0.85rem; }
+
+    #pq-timer-wrap {
+      width: 100%; height: 6px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 3px; overflow: hidden;
+      flex-shrink: 0;
+    }
+    #pq-timer-bar {
+      height: 100%;
+      background: linear-gradient(90deg, var(--timer), #8a2be2);
+      border-radius: 3px; width: 100%;
+      transition: none;
+    }
+
+    #pq-text {
+      font-size: clamp(1.1rem, 4vw, 1.5rem);
+      font-weight: 700;
+      text-align: center;
+      line-height: 1.35;
+      width: 100%;
+      padding: 0.25rem 0;
+    }
+
     #answer-buttons {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -111,18 +143,33 @@
       width: 100%;
     }
     .ans-btn {
-      padding: 1.6rem 0.75rem;
+      padding: 0.85rem 0.75rem;
+      min-height: 70px;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      text-align: left;
       border: none;
       border-radius: 0.75rem;
-      font-size: 1.5rem;
-      font-weight: 900;
       color: #fff;
       cursor: pointer;
       transition: transform 0.1s, filter 0.2s;
-      min-height: 100px;
     }
     .ans-btn:active { transform: scale(0.93); }
     .ans-btn:disabled { cursor: not-allowed; filter: brightness(0.5); }
+    .ans-btn-letter {
+      font-size: 1.3rem;
+      font-weight: 900;
+      flex-shrink: 0;
+      width: 1.8rem;
+      text-align: center;
+    }
+    .ans-btn-text {
+      font-size: 0.95rem;
+      font-weight: 600;
+      line-height: 1.25;
+      flex: 1;
+    }
     .btn-A { background: var(--red); }
     .btn-B { background: var(--blue); }
     .btn-C { background: var(--yellow); color: #222; }
@@ -323,12 +370,29 @@
 
 <!-- QUESTION -->
 <div id="question" class="screen">
-  <div id="q-hint">Look at the TV for the question!</div>
+  <div id="pq-header">
+    <span id="pq-category"></span>
+    <span id="pq-counter"></span>
+  </div>
+  <div id="pq-timer-wrap"><div id="pq-timer-bar"></div></div>
+  <div id="pq-text"></div>
   <div id="answer-buttons">
-    <button class="ans-btn btn-A" data-id="A">A</button>
-    <button class="ans-btn btn-B" data-id="B">B</button>
-    <button class="ans-btn btn-C" data-id="C">C</button>
-    <button class="ans-btn btn-D" data-id="D">D</button>
+    <button class="ans-btn btn-A" data-id="A">
+      <span class="ans-btn-letter">A</span>
+      <span class="ans-btn-text" id="ans-btn-A-text"></span>
+    </button>
+    <button class="ans-btn btn-B" data-id="B">
+      <span class="ans-btn-letter">B</span>
+      <span class="ans-btn-text" id="ans-btn-B-text"></span>
+    </button>
+    <button class="ans-btn btn-C" data-id="C">
+      <span class="ans-btn-letter" style="color:#222">C</span>
+      <span class="ans-btn-text" id="ans-btn-C-text"></span>
+    </button>
+    <button class="ans-btn btn-D" data-id="D">
+      <span class="ans-btn-letter">D</span>
+      <span class="ans-btn-text" id="ans-btn-D-text"></span>
+    </button>
   </div>
 </div>
 
@@ -337,6 +401,7 @@
   <div class="lock-icon">🔒</div>
   <h2>Locked in!</h2>
   <div id="locked-answer" class="chosen-answer"></div>
+  <div id="locked-answer-text" style="color:#aaa; font-size:0.95rem; text-align:center;"></div>
   <p>Waiting for other players…</p>
 </div>
 
@@ -405,7 +470,6 @@
     document.querySelector('#join p').textContent = P('subtitle');
     document.getElementById('username-input').placeholder = P('placeholder');
     document.getElementById('join-btn').textContent = P('joinBtn');
-    document.getElementById('q-hint').textContent = P('lookTV');
     document.querySelector('#locked h2').textContent = P('lockedIn');
     document.querySelector('#locked > p').textContent = P('waitingOthers');
     document.querySelector('#gameover h1').textContent = P('gameOver');
@@ -428,6 +492,8 @@
   let myScore = 0;
   let myRank = null;
   let myDelta = 0;
+  let currentAnswers = {};  // id → text, populated on QUESTION
+  let pqTimerTimeout = null;
 
   function buildWsUrl(room) {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -523,6 +589,7 @@
       locked.textContent = answerId;
       locked.style.background = colors[answerId];
       locked.style.color = textColors[answerId];
+      document.getElementById('locked-answer-text').textContent = currentAnswers[answerId] || '';
       show('locked');
     });
   });
@@ -581,6 +648,43 @@
       case 'QUESTION':
         currentQuestionId = msg.questionId;
         myLastAnswer = null;
+        currentAnswers = {};
+
+        // Populate header
+        document.getElementById('pq-category').textContent = msg.category || '';
+        document.getElementById('pq-counter').textContent =
+          `${msg.questionNumber} / ${msg.totalQuestions}`;
+
+        // Populate question text
+        document.getElementById('pq-text').textContent = msg.question;
+
+        // Populate answer button texts + build lookup map
+        for (const ans of msg.answers) {
+          currentAnswers[ans.id] = ans.text;
+          const el = document.getElementById(`ans-btn-${ans.id}-text`);
+          if (el) el.textContent = ans.text;
+        }
+
+        // Timer bar animation
+        if (pqTimerTimeout) clearTimeout(pqTimerTimeout);
+        {
+          const bar = document.getElementById('pq-timer-bar');
+          const elapsed = msg.elapsed || 0;
+          const totalMs = msg.timeLimit * 1000;
+          const remaining = msg.remaining != null ? msg.remaining : totalMs - elapsed;
+          const startPct = (remaining / totalMs) * 100;
+
+          bar.style.transition = 'none';
+          bar.style.width = startPct + '%';
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              bar.style.transition = `width ${remaining / 1000}s linear`;
+              bar.style.width = '0%';
+            });
+          });
+          pqTimerTimeout = setTimeout(() => { bar.style.width = '0%'; }, remaining);
+        }
+
         document.querySelectorAll('.ans-btn').forEach(b => b.disabled = false);
         show('question');
         break;
@@ -590,10 +694,12 @@
         break;
 
       case 'REVEAL':
+        if (pqTimerTimeout) { clearTimeout(pqTimerTimeout); pqTimerTimeout = null; }
         handleReveal(msg);
         break;
 
       case 'NEXT_QUESTION':
+        if (pqTimerTimeout) { clearTimeout(pqTimerTimeout); pqTimerTimeout = null; }
         show('waiting');
         document.getElementById('waiting-name').textContent = P('nextSoon');
         document.getElementById('waiting-players').textContent = '';
@@ -672,8 +778,8 @@
       badgeEl.style.display = '';
       badgeEl.className = 'chosen-badge ' + (wasCorrect ? 'chosen-correct' : 'chosen-wrong');
       badgeEl.textContent = wasCorrect
-        ? `${myLastAnswer} ✓`
-        : `${myLastAnswer} ✗ · Correct: ${msg.correctAnswer}${msg.correctText ? ' — ' + msg.correctText : ''}`;
+        ? `${myLastAnswer} ✓  ${currentAnswers[myLastAnswer] || ''}`
+        : `${myLastAnswer} ✗ · ${currentAnswers[myLastAnswer] || ''}  →  ${msg.correctAnswer}: ${msg.correctText || ''}`;
     } else {
       badgeEl.style.display = 'none';
     }
