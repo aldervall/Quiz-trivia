@@ -573,10 +573,11 @@
         myScore = 0;
         myRank = null;
         if (myUsername) {
-          send({ type: 'JOIN', username: myUsername });
-        } else {
-          show('join');
+          usernameInput.value = myUsername;
         }
+        myUsername = null;
+        joinError.textContent = '';
+        show('join');
         break;
 
       case 'ERROR':
