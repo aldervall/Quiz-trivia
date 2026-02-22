@@ -66,7 +66,53 @@
       padding: 1.5rem;
       gap: 0.75rem;
     }
-    #qr-panel img { width: min(220px, 30vw); border-radius: 0.5rem; background: #fff; padding: 8px; }
+    #qr-scan-label {
+      font-size: 0.82rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--accent);
+    }
+    /* QR frame with CSS corner brackets */
+    #qr-frame {
+      position: relative;
+      --cb: rgba(159, 68, 211, 0.85);
+      background:
+        linear-gradient(var(--cb), var(--cb)) top    left  / 3px 22px no-repeat,
+        linear-gradient(var(--cb), var(--cb)) top    left  / 22px 3px no-repeat,
+        linear-gradient(var(--cb), var(--cb)) top    right / 3px 22px no-repeat,
+        linear-gradient(var(--cb), var(--cb)) top    right / 22px 3px no-repeat,
+        linear-gradient(var(--cb), var(--cb)) bottom left  / 3px 22px no-repeat,
+        linear-gradient(var(--cb), var(--cb)) bottom left  / 22px 3px no-repeat,
+        linear-gradient(var(--cb), var(--cb)) bottom right / 3px 22px no-repeat,
+        linear-gradient(var(--cb), var(--cb)) bottom right / 22px 3px no-repeat;
+      padding: 6px;
+      border-radius: 0.6rem;
+      overflow: hidden;
+    }
+    #qr-frame img { width: min(220px, 30vw); border-radius: 0.4rem; background: #fff; padding: 8px; display: block; }
+    /* Animated scan line */
+    .qr-scan-line {
+      position: absolute;
+      left: 6px; right: 6px;
+      height: 2px;
+      background: linear-gradient(90deg, transparent 5%, rgba(159,68,211,0.85) 50%, transparent 95%);
+      animation: qrScan 2.6s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 2;
+    }
+    @keyframes qrScan {
+      0%   { top: 10px; opacity: 0; }
+      8%   { opacity: 1; }
+      92%  { opacity: 1; }
+      100% { top: calc(100% - 10px); opacity: 0; }
+    }
+    #qr-camera-hint {
+      font-size: 0.7rem;
+      color: #777;
+      text-align: center;
+      margin-top: -0.15rem;
+    }
     #qr-url { font-size: 1.1rem; color: var(--timer); font-weight: 600; letter-spacing: 0.04em; }
 
     #category-panel {
@@ -797,7 +843,12 @@
   </div>
 
   <div id="qr-panel">
-    <img id="qr-img" src="/api/qr" alt="QR Code">
+    <div id="qr-scan-label">📷 Scan to Join</div>
+    <div id="qr-frame">
+      <img id="qr-img" src="/api/qr" alt="QR Code">
+      <div class="qr-scan-line"></div>
+    </div>
+    <div id="qr-camera-hint">Point your phone camera at the code</div>
     <div id="qr-url">Loading...</div>
   </div>
 
