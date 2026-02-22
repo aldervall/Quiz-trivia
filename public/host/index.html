@@ -75,6 +75,7 @@
     /* QR frame with CSS corner brackets */
     #qr-frame {
       position: relative;
+      width: 210px;
       --cb: rgba(159, 68, 211, 0.85);
       background:
         linear-gradient(var(--cb), var(--cb)) top    left  / 3px 22px no-repeat,
@@ -89,7 +90,7 @@
       border-radius: 0.6rem;
       overflow: hidden;
     }
-    #qr-frame img { width: min(220px, 100%); border-radius: 0.4rem; background: #fff; padding: 8px; display: block; }
+    #qr-frame img { width: 100%; border-radius: 0.4rem; background: #fff; padding: 8px; display: block; }
     /* Animated scan line */
     .qr-scan-line {
       position: absolute;
