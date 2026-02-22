@@ -40,3 +40,4 @@ Place `cert.pem` and `key.pem` in the `certs/` folder. The server auto-detects a
 - Node.js + Express
 - WebSockets (`ws`)
 - Open Trivia DB API
+- skogix was here
