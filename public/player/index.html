@@ -141,19 +141,66 @@
     #locked p { color: #aaa; font-size: 0.9rem; }
 
     /* ── REVEAL ── */
-    #reveal { text-align: center; gap: 1.25rem; }
-    .result-icon { font-size: 4rem; }
-    #result-title { font-size: 1.8rem; font-weight: 900; }
+    #reveal { text-align: center; gap: 0.9rem; }
+    #result-icon-wrap { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; }
+    .result-icon {
+      font-size: 4.5rem;
+      animation: iconPop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    @keyframes iconPop {
+      0%   { transform: scale(0.3); opacity: 0; }
+      100% { transform: scale(1);   opacity: 1; }
+    }
+    #result-title { font-size: 2rem; font-weight: 900; }
     #result-title.correct { color: #4cde80; }
     #result-title.wrong { color: #ff6b6b; }
-    #result-detail { color: #aaa; font-size: 1rem; }
+    #result-detail { color: #aaa; font-size: 0.9rem; }
     #result-points {
-      font-size: 2.5rem;
+      font-size: 3rem;
       font-weight: 900;
-      color: var(--timer);
+      color: #4cde80;
+      text-shadow: 0 0 28px rgba(76, 222, 128, 0.55);
+      min-height: 1em;
     }
-    #result-score { color: #aaa; font-size: 0.95rem; }
-    #result-rank { font-size: 1.1rem; font-weight: 600; }
+    /* Stat card row: rank + time side by side */
+    #result-stats-row {
+      display: flex;
+      gap: 0.75rem;
+      width: 100%;
+    }
+    .result-stat-card {
+      flex: 1;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.09);
+      border-radius: 0.75rem;
+      padding: 0.6rem 0.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.15rem;
+    }
+    .stat-label {
+      font-size: 0.6rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #666;
+    }
+    .stat-value { font-size: 1.45rem; font-weight: 800; }
+    #result-stats-row .result-stat-card:first-child .stat-value { color: gold; }
+    #result-stats-row .result-stat-card:last-child  .stat-value { color: var(--timer); }
+    /* Total score card */
+    #result-score-card {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: 0.75rem;
+      padding: 0.6rem 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    #result-score { font-size: 1.3rem; font-weight: 800; color: var(--timer); }
 
     /* ── GAME OVER ── */
     #gameover { text-align: center; gap: 1.5rem; }
@@ -292,13 +339,27 @@
 
 <!-- REVEAL -->
 <div id="reveal" class="screen">
-  <div class="result-icon" id="result-icon"></div>
-  <div id="result-title"></div>
+  <div id="result-icon-wrap">
+    <div class="result-icon" id="result-icon"></div>
+    <div id="result-title"></div>
+  </div>
   <div id="chosen-answer-reveal" class="chosen-badge" style="display:none;"></div>
   <div id="result-detail"></div>
   <div id="result-points"></div>
-  <div id="result-score"></div>
-  <div id="result-rank"></div>
+  <div id="result-stats-row">
+    <div class="result-stat-card">
+      <span class="stat-label">Rank</span>
+      <span class="stat-value" id="result-rank"></span>
+    </div>
+    <div class="result-stat-card">
+      <span class="stat-label">Time</span>
+      <span class="stat-value" id="result-time">—</span>
+    </div>
+  </div>
+  <div id="result-score-card">
+    <span class="stat-label">Total Score</span>
+    <span id="result-score"></span>
+  </div>
   <div id="streak-notification"></div>
 </div>
 
@@ -585,15 +646,19 @@
 
     // Points
     const delta = myEntry.delta || 0;
-    document.getElementById('result-points').textContent = delta > 0 ? `+${delta}` : '';
+    document.getElementById('result-points').textContent = delta > 0 ? `+${delta.toLocaleString()}` : '';
     myScore = myEntry.score;
     myRank = myEntry.rank;
-    document.getElementById('result-score').textContent = P('total', myScore);
+    document.getElementById('result-score').textContent = myScore.toLocaleString() + ' pts';
 
     // Rank with medals
     const rankMedals = ['🥇','🥈','🥉'];
     document.getElementById('result-rank').textContent =
-      myRank <= 3 ? `${rankMedals[myRank-1]} #${myRank}` : P('rank', myRank);
+      myRank <= 3 ? `${rankMedals[myRank-1]} #${myRank}` : `#${myRank}`;
+
+    // Answer time
+    document.getElementById('result-time').textContent =
+      myEntry.answerTime != null ? `⚡${myEntry.answerTime}s` : '—';
 
     // Streak notification
     const streak = myEntry.streak || 0;
