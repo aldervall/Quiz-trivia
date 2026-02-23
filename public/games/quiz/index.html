@@ -787,7 +787,7 @@
   }
 
   document.getElementById('go-lobby-btn').addEventListener('click', () => {
-    send({ type: 'RETURN_TO_LOBBY' });
+    if (isAdmin) send({ type: 'RETURN_TO_LOBBY' });
     window.location.href = `/group/${roomCode}`;
   });
 
