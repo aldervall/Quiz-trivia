@@ -430,7 +430,17 @@ function maybeCleanupRoom(room) {
   const totalSockets = room.playerSockets.size + room.displaySockets.size;
   const idle = room.activeMiniGame === 'lobby' || (room.game && room.game.state === 'GAME_OVER');
   if (totalSockets === 0 && idle) {
-    rooms.delete(room.code);
+    // Grace period: players navigating between pages temporarily have 0 sockets.
+    // Wait 30s before deleting so back-to-lobby transitions don't destroy the room.
+    clearTimeout(room._cleanupTimer);
+    room._cleanupTimer = setTimeout(() => {
+      if (room.playerSockets.size + room.displaySockets.size === 0) {
+        rooms.delete(room.code);
+        console.log(`[Room ${room.code}] Deleted after 30s idle.`);
+      }
+    }, 30_000);
+  } else {
+    clearTimeout(room._cleanupTimer);
   }
 }
 
@@ -491,6 +501,8 @@ function handleMessage(ws, role, msg, room) {
 
     case 'JOIN_LOBBY':
     case 'JOIN': {
+      // Player reconnected — cancel any pending room cleanup
+      clearTimeout(room._cleanupTimer);
       const username = (msg.username || '').trim().slice(0, 20);
       if (!username) {
         sendTo(ws, { type: 'ERROR', code: 'INVALID_USERNAME', message: 'Username required.' });
