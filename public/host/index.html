@@ -293,54 +293,80 @@
     #countdown-total { font-size: 1.2rem; color: #888; }
 
     /* ── QUESTION ── */
-    #question-screen { gap: 1rem; }
-    #question-screen.active {
-      display: grid;
-      grid-template-columns: 1fr 280px;
-      grid-template-rows: auto auto 1fr auto;
-      gap: 1rem;
-    }
-    #question-screen > #q-header      { grid-column: 1; grid-row: 1; }
-    #question-screen > #timer-bar-wrap { grid-column: 1; grid-row: 2; }
-    #question-screen > #q-text        { grid-column: 1; grid-row: 3; flex: unset; min-height: 0; }
-    #question-screen > #answers-grid  { grid-column: 1; grid-row: 4; }
+    #question-screen { gap: 0.75rem; }
+    /* Scoreboard strip — always at top of question screen */
     #q-live-lb {
-      grid-column: 2; grid-row: 1 / 5;
-      background: var(--card);
+      order: -1;
+      width: 100%;
+      background: linear-gradient(135deg, rgba(22,33,62,0.97), rgba(20,20,40,0.95));
+      border: 1px solid rgba(159,68,211,0.22);
       border-radius: 1rem;
-      padding: 0.85rem 1rem;
+      padding: 0.6rem 1rem;
       display: flex;
       flex-direction: column;
       gap: 0.35rem;
-      overflow-y: auto;
-      min-height: 0;
-    }
-    .q-lb-header {
-      font-size: 0.72rem;
-      font-weight: 700;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      color: #666;
-      padding-bottom: 0.35rem;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
       flex-shrink: 0;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
     }
-    .q-lb-row {
+    .ql-strip-row {
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      padding: 0.35rem 0.5rem;
-      border-radius: 0.55rem;
-      font-size: 0.92rem;
+      flex-wrap: wrap;
+      min-height: 3rem;
     }
-    .q-lb-row.top3 { background: rgba(255,255,255,0.04); }
-    .q-lb-row.rank-gold   { background: rgba(255,215,0,0.1);  border: 1px solid rgba(255,215,0,0.28); }
-    .q-lb-row.rank-silver { background: rgba(192,192,192,0.08); border: 1px solid rgba(192,192,192,0.22); }
-    .q-lb-row.rank-bronze { background: rgba(205,127,50,0.1); border: 1px solid rgba(205,127,50,0.25); }
-    .q-lb-rank  { width: 2rem; font-size: 1rem; flex-shrink: 0; text-align: center; }
-    .q-lb-name  { flex: 1; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .q-lb-score { font-weight: 800; color: var(--timer); font-size: 0.88rem; flex-shrink: 0; }
-    .q-lb-delta { font-size: 0.78rem; font-weight: 700; color: #4cde80; flex-shrink: 0; min-width: 2.8rem; text-align: right; }
+    .ql-strip-label {
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #666;
+      flex-shrink: 0;
+      white-space: nowrap;
+      padding-right: 0.6rem;
+      border-right: 1px solid rgba(255,255,255,0.1);
+      margin-right: 0.1rem;
+      align-self: stretch;
+      display: flex;
+      align-items: center;
+    }
+    .ql-player-chip {
+      display: flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.45rem 0.9rem;
+      border-radius: 0.65rem;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.09);
+      min-height: 52px;
+      font-size: 1rem;
+      white-space: nowrap;
+      transition: box-shadow 0.3s;
+    }
+    .ql-player-chip.gold {
+      background: linear-gradient(135deg, rgba(255,215,0,0.2), rgba(255,165,0,0.1));
+      border: 1px solid rgba(255,215,0,0.55);
+      box-shadow: 0 0 20px rgba(255,215,0,0.18);
+    }
+    .ql-player-chip.silver {
+      background: rgba(192,192,192,0.12);
+      border: 1px solid rgba(192,192,192,0.4);
+    }
+    .ql-player-chip.bronze {
+      background: rgba(205,127,50,0.15);
+      border: 1px solid rgba(205,127,50,0.45);
+    }
+    .ql-player-chip.gold   .ql-chip-name,
+    .ql-player-chip.gold   .ql-chip-score { color: gold; text-shadow: 0 0 10px rgba(255,215,0,0.5); }
+    .ql-player-chip.silver .ql-chip-name,
+    .ql-player-chip.silver .ql-chip-score { color: #d8d8d8; }
+    .ql-player-chip.bronze .ql-chip-name,
+    .ql-player-chip.bronze .ql-chip-score { color: #e8a870; }
+    .ql-chip-rank  { font-size: 1.5rem; line-height: 1; flex-shrink: 0; }
+    .ql-chip-name  { font-weight: 700; font-size: 1.05rem; }
+    .ql-chip-score { color: var(--timer); font-weight: 800; font-size: 1.05rem; margin-left: 0.2rem; }
+    .ql-chip-delta { color: #4cde80; font-size: 0.82rem; font-weight: 700; }
+    .ql-chip-time  { font-size: 0.78rem; color: #aaa; }
 
     #q-header {
       display: flex;
@@ -1587,96 +1613,91 @@
     }
   }
 
-  // ── Live standings sidebar (question phase) ──────────────────────────────
+  // ── Scoreboard strip — question phase ────────────────────────────────────
   function updateQLiveLb() {
-    const rows = document.getElementById('q-live-lb-rows');
-    if (!rows) return;
+    const el = document.getElementById('q-live-lb-rows');
+    if (!el) return;
     const display = currentScores.length > 0
       ? currentScores
       : currentPlayers.map(name => ({ username: name, score: 0, delta: null }));
     if (display.length === 0) {
-      rows.innerHTML = '<div style="color:#555;font-size:0.82rem;text-align:center;padding:0.75rem 0;">Waiting for players…</div>';
+      el.innerHTML = '<div style="color:#555;font-size:0.82rem;padding:0.3rem 0;">Waiting for players…</div>';
       return;
     }
-    const medals = ['🥇','🥈','🥉'];
-    const rankClasses = ['rank-gold','rank-silver','rank-bronze'];
-    rows.innerHTML =
-      `<div class="q-lb-header">🏆 Standings</div>` +
-      display.map((s, i) => {
-        const rankLabel = medals[i] || `${i + 1}.`;
-        const rowClass  = rankClasses[i] || '';
-        const deltaHtml = s.delta > 0
-          ? `<span class="q-lb-delta">+${s.delta.toLocaleString()}</span>`
-          : '';
-        return `<div class="q-lb-row ${rowClass}">
-          <span class="q-lb-rank">${rankLabel}</span>
-          <span class="q-lb-name">${esc(s.username)}</span>
-          ${deltaHtml}
-          <span class="q-lb-score">${s.score.toLocaleString()}</span>
-        </div>`;
-      }).join('');
+    const medals     = ['🥇','🥈','🥉'];
+    const chipClass  = ['gold','silver','bronze'];
+    const chips = display.map((s, i) => {
+      const deltaHtml = s.delta > 0 ? `<span class="ql-chip-delta">+${s.delta.toLocaleString()}</span>` : '';
+      return `<div class="ql-player-chip ${chipClass[i] || ''}">
+        <span class="ql-chip-rank">${medals[i] || `${i + 1}.`}</span>
+        <span class="ql-chip-name">${esc(s.username)}</span>
+        ${deltaHtml}
+        <span class="ql-chip-score">${s.score.toLocaleString()}</span>
+      </div>`;
+    }).join('');
+    el.innerHTML = `<div class="ql-strip-row">
+      <span class="ql-strip-label">🏆 Standings</span>
+      ${chips}
+    </div>`;
   }
 
-  // ── Reveal sidebar (replaces the old floating overlay) ───────────────────
+  // ── Scoreboard strip — reveal phase ──────────────────────────────────────
   function showRevealInSidebar(msg, correctLetter) {
-    const rows = document.getElementById('q-live-lb-rows');
-    if (!rows) return;
+    const el = document.getElementById('q-live-lb-rows');
+    if (!el) return;
 
-    const correctPct = msg.answerBreakdown[correctLetter] || 0;
-    const pctHtml = correctPct === 0
-      ? `<span style="color:#ff8585">😱 Nobody got it!</span>`
-      : `<span style="color:#4cde80">✓ ${correctPct}% correct</span>`;
-
-    const medals = ['🥇','🥈','🥉'];
-    const medalClass = ['rank-gold','rank-silver','rank-bronze'];
-    const maxDelta = Math.max(...msg.scores.map(s => s.delta), 1);
+    const correctPct  = msg.answerBreakdown[correctLetter] || 0;
+    const pctLabel    = correctPct === 0 ? '😱 Nobody!' : `✓ ${correctPct}%`;
+    const pctColor    = correctPct === 0 ? '#ff8585' : '#4cde80';
+    const medals      = ['🥇','🥈','🥉'];
+    const chipClass   = ['gold','silver','bronze'];
     const roundSorted = [...msg.scores].sort((a, b) => b.delta - a.delta);
     const totalSorted = [...msg.scores].sort((a, b) => b.score - a.score);
 
-    const roundRowsHtml = roundSorted.map((s, i) => {
-      const isCorrect = s.answer === correctLetter;
+    const roundChips = roundSorted.map((s, i) => {
+      const isCorrect  = s.answer === correctLetter;
       const badgeClass = s.answer ? (isCorrect ? 'badge-correct' : 'badge-wrong') : 'badge-none';
-      const timeLabel  = s.answerTime != null ? `⚡${s.answerTime}s` : '—';
-      const timeClass  = s.answerTime != null ? '' : 'no-answer';
-      const barWidth   = s.delta > 0 ? Math.round((s.delta / maxDelta) * 100) : 0;
-      const barColor   = s.delta > 0 ? '#4cde80' : '#444';
       const streak     = s.streak || 0;
-      const streakIcon = streak >= 5 ? ' 🔥🔥' : streak >= 3 ? ' 🔥' : '';
-      return `<div class="lb-round-row">
-        <span class="lb-round-medal">${medals[i] || ''}</span>
-        <span class="lb-round-name">${esc(s.username)}${streakIcon}</span>
-        <span class="lb-round-time ${timeClass}">${timeLabel}</span>
-        <div class="lb-score-bar-wrap"><div class="lb-score-bar" style="width:${barWidth}%;background:${barColor};"></div></div>
-        <span class="lb-round-delta ${s.delta === 0 ? 'zero' : ''}">${s.delta > 0 ? '+' + s.delta.toLocaleString() : '—'}</span>
+      const fire       = streak >= 5 ? '🔥🔥' : streak >= 3 ? '🔥' : '';
+      const timeHtml   = s.answerTime != null ? `<span class="ql-chip-time">⚡${s.answerTime}s</span>` : '';
+      const deltaHtml  = s.delta > 0 ? `<span class="ql-chip-delta">+${s.delta.toLocaleString()}</span>` : '';
+      return `<div class="ql-player-chip">
+        <span class="ql-chip-rank">${medals[i] || `${i + 1}.`}</span>
+        <span class="ql-chip-name">${esc(s.username)}${fire}</span>
+        ${timeHtml}
         <span class="lb-answer-badge ${badgeClass}">${s.answer || '—'}</span>
+        ${deltaHtml}
       </div>`;
     }).join('');
 
-    const totalRowsHtml = totalSorted.map((s, i) => {
-      const rankChange = (s.prevRank != null) ? s.prevRank - s.rank : null;
-      let arrow = '', arrowClass = 'rank-same';
+    const totalChips = totalSorted.map((s, i) => {
+      const rankChange = s.prevRank != null ? s.prevRank - s.rank : null;
+      let arrowHtml = '';
       if (rankChange !== null) {
-        if (rankChange > 0)      { arrow = `↑${rankChange}`;            arrowClass = 'rank-up'; }
-        else if (rankChange < 0) { arrow = `↓${Math.abs(rankChange)}`; arrowClass = 'rank-down'; }
-        else                     { arrow = '='; }
+        if (rankChange > 0)      arrowHtml = `<span style="color:#4cde80;font-size:0.7rem">↑${rankChange}</span>`;
+        else if (rankChange < 0) arrowHtml = `<span style="color:#ff6b6b;font-size:0.7rem">↓${Math.abs(rankChange)}</span>`;
       }
-      const streak     = s.streak || 0;
-      const streakIcon = streak >= 5 ? ' 🔥🔥' : streak >= 3 ? ' 🔥' : '';
-      return `<div class="lb-total-row ${medalClass[i] || ''}">
-        <span class="lb-total-rank">${medals[i] || `${i + 1}.`}</span>
-        <span class="lb-rank-change ${arrowClass}">${arrow}</span>
-        <span class="lb-total-name">${esc(s.username)}${streakIcon}</span>
-        <span class="lb-total-score">${s.score.toLocaleString()}</span>
+      const streak = s.streak || 0;
+      const fire   = streak >= 5 ? '🔥🔥' : streak >= 3 ? '🔥' : '';
+      return `<div class="ql-player-chip ${chipClass[i] || ''}">
+        <span class="ql-chip-rank">${medals[i] || `${i + 1}.`}</span>
+        <span class="ql-chip-name">${esc(s.username)}${fire}</span>
+        ${arrowHtml}
+        <span class="ql-chip-score">${s.score.toLocaleString()}</span>
       </div>`;
     }).join('');
 
-    rows.innerHTML = `
-      <div class="ql-reveal-header">${pctHtml}</div>
-      <div class="q-lb-header" style="margin-top:0.3rem">This Round</div>
-      ${roundRowsHtml}
-      <div class="q-lb-header" style="margin-top:0.5rem">Total Scores</div>
-      ${totalRowsHtml}
-      <button class="ql-skip-btn" id="ql-skip-inner">Skip →</button>
+    el.innerHTML = `
+      <div class="ql-strip-row">
+        <span class="ql-strip-label" style="color:${pctColor}">${pctLabel}</span>
+        <span class="ql-strip-label">This Round</span>
+        ${roundChips}
+        <button class="ql-skip-btn" id="ql-skip-inner" style="margin-left:auto">Skip →</button>
+      </div>
+      <div class="ql-strip-row">
+        <span class="ql-strip-label">Total</span>
+        ${totalChips}
+      </div>
     `;
     document.getElementById('ql-skip-inner').addEventListener('click', () => send({ type: 'SKIP' }));
   }
