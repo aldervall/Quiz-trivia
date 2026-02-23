@@ -55,10 +55,11 @@
       width: min(460px, calc(100vw - 2rem));
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: stretch;
       gap: 1.5rem;
       backdrop-filter: blur(12px);
       box-shadow: 0 8px 48px rgba(0,0,0,0.45);
+      overflow: hidden;
     }
 
     .title {
@@ -117,6 +118,7 @@
     }
     #room-code-input {
       flex: 1;
+      min-width: 0;
       padding: 0.85rem 1rem;
       font-size: 1.3rem;
       font-weight: 800;
