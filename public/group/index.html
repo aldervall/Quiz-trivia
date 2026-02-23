@@ -651,11 +651,12 @@
     const el = document.getElementById('vote-status-msg');
     if (state.totalCount === 0) { el.textContent = ''; return; }
 
-    if (state.allVoted) {
-      el.textContent = `✅ All ${state.totalCount} players voted on categories`;
+    const readyCount = state.readyCount || 0;
+    if (state.allReady) {
+      el.textContent = `✅ All ${state.totalCount} players ready`;
       el.className = 'all-voted';
-    } else if (state.votedCount > 0) {
-      el.textContent = `🗳️ ${state.votedCount} / ${state.totalCount} voted on categories`;
+    } else if (readyCount > 0) {
+      el.textContent = `⏳ ${readyCount} / ${state.totalCount} ready`;
       el.className = '';
     } else {
       el.textContent = '';
@@ -683,11 +684,10 @@
     if (!isAdmin) { section.classList.remove('visible'); return; }
     section.classList.add('visible');
 
-    // Start btn enabled when all players ready + someone voted a game + all category-voted
+    // Start btn enabled when all players ready + someone voted a game
     const hasGame   = !!myVote;
     const allReady  = state.allReady;
-    const allVoted  = state.allVoted || state.totalCount === 0;
-    const canStart  = state.totalCount > 0 && allReady && hasGame && allVoted;
+    const canStart  = state.totalCount > 0 && allReady && hasGame;
     document.getElementById('start-btn').disabled = !canStart;
   }
 

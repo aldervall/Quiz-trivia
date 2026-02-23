@@ -556,15 +556,7 @@ function handleMessage(ws, role, msg, room) {
         sendTo(ws, { type: 'ERROR', code: 'NOT_ADMIN', message: 'Only admin can start the game.' });
         break;
       }
-      // For quiz: require all players voted
       const gameType = msg.gameType || 'quiz';
-      if (gameType === 'quiz') {
-        const totalPlayers = room.players.size;
-        if (totalPlayers > 0 && room.categoryVotes.size < totalPlayers) {
-          sendTo(ws, { type: 'ERROR', code: 'NOT_ALL_VOTED', message: `Waiting for all players to vote (${room.categoryVotes.size}/${totalPlayers} voted).` });
-          break;
-        }
-      }
       const categories = Array.isArray(msg.categories) && msg.categories.length > 0 ? msg.categories : [9];
       const questionCount = Number.isInteger(msg.questionCount) && msg.questionCount > 0 ? Math.min(msg.questionCount, 50) : 20;
       const gameDifficulty = ['easy', 'medium', 'hard'].includes(msg.gameDifficulty) ? msg.gameDifficulty : 'easy';
