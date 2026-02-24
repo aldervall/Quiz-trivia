@@ -133,13 +133,14 @@ try {
   // ── Back to lobby ──────────────────────────────────────────────────────────
   console.log('\n=== BACK TO LOBBY ===');
   await js(p2, () => document.getElementById('go-lobby-btn')?.click());
-  await wait(2500);
   await js(p1, () => document.getElementById('go-lobby-btn')?.click());
-  await wait(4000);
 
   const exp = `${BASE}/group/${roomCode}`;
-  console.log('Alice URL:', p1.url() === exp ? '✅' : `❌ ${p1.url()}`);
-  console.log('Bob URL:  ', p2.url() === exp ? '✅' : `❌ ${p2.url()}`);
+  const aliceBack = await (async () => { const t=Date.now(); while(Date.now()-t<8000){if(p1.url()===exp)return true;await wait(300);} return false; })();
+  const bobBack   = await (async () => { const t=Date.now(); while(Date.now()-t<8000){if(p2.url()===exp)return true;await wait(300);} return false; })();
+  await wait(2000); // let WS reconnect + LOBBY_UPDATE arrive
+  console.log('Alice URL:', aliceBack ? '✅' : `❌ ${p1.url()}`);
+  console.log('Bob URL:  ', bobBack   ? '✅' : `❌ ${p2.url()}`);
   const chips = await js(p1, () => [...document.querySelectorAll('.player-chip')].map(c=>c.innerText.replace(/\n/g,' ').trim()));
   const crown = chips.find(c=>c.includes('👑'));
   console.log('Admin crown:', crown || 'none');
