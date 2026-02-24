@@ -116,6 +116,16 @@ class Game {
       return;
     }
 
+    if (this.state === STATE.FETCHING) {
+      send({ type: 'GAME_FETCHING' });
+      return;
+    }
+
+    if (this.state === STATE.COUNTDOWN) {
+      send({ type: 'GAME_STARTING', countdown: 0, totalQuestions: this.questions.length });
+      return;
+    }
+
     if (this.state === STATE.QUESTION_ACTIVE) {
       const q = this.questions[this.currentIdx];
       const elapsed = Date.now() - this.questionStartTime;

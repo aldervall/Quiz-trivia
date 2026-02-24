@@ -527,7 +527,8 @@ function handleMessage(ws, role, msg, room) {
       const result = room.game.addPlayer(ws, username);
 
       const isAdmin = username === room.adminUsername;
-      sendTo(ws, { type: 'JOIN_OK', username, isAdmin, roomCode: room.code, avatar, lang: room.language });
+      const gameRunning = !!(room.game && room.game.state !== 'LOBBY');
+      sendTo(ws, { type: 'JOIN_OK', username, isAdmin, roomCode: room.code, avatar, lang: room.language, gameRunning });
 
       if (!result.ok) {
         sendTo(ws, { type: 'ERROR', code: result.code, message: result.message });

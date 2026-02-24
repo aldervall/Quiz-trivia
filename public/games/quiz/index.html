@@ -403,7 +403,9 @@
         isAdmin    = msg.isAdmin;
         sessionStorage.setItem(storageKey, myUsername);
         updateAdminControls();
-        initVoteScreen();
+        if (!msg.gameRunning) {
+          initVoteScreen();
+        }
         break;
 
       case 'ADMIN_CHANGED':
