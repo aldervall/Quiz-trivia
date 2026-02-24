@@ -127,7 +127,8 @@ try {
 
   const r2Score = parseScore(go2A.score);
   console.log('Round 2 score:', r2Score);
-  console.log('Scores accumulated (R2 > R1):', r2Score > r1Score ? '✅ PASS' : `❌ FAIL (${r1Score} → ${r2Score})`);
+  // r2 >= r1: scores carry over (equal is valid if 0 correct in round 2)
+  console.log('Scores not reset (R2 >= R1):', r2Score >= r1Score ? '✅ PASS' : `❌ FAIL (${r1Score} → ${r2Score})`);
 
   // ── Back to lobby ──────────────────────────────────────────────────────────
   console.log('\n=== BACK TO LOBBY ===');

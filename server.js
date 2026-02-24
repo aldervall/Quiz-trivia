@@ -405,19 +405,21 @@ function handlePlayerDisconnect(ws, room) {
   const wasLobby = room.activeMiniGame === 'lobby';
 
   if (wasLobby) {
-    // In lobby: fully remove the player
-    room.players.delete(username);
-    room.readyPlayers.delete(username);
-    room.gameSuggestions.delete(username);
-    room.categoryVotes.delete(username);
+    // During a game→lobby transition players are navigating and will reconnect
+    // shortly — skip all deletion and handoff so room.players stays intact.
+    if (!room._returningFromGame) {
+      room.players.delete(username);
+      room.readyPlayers.delete(username);
+      room.gameSuggestions.delete(username);
+      room.categoryVotes.delete(username);
 
-    // Hand off admin if needed — but NOT during a game→lobby transition,
-    // where players are temporarily navigating and will reconnect shortly.
-    if (username === room.adminUsername && !room._returningFromGame) {
-      const nextAdmin = [...room.players.keys()][0];
-      if (nextAdmin) {
-        room.adminUsername = nextAdmin;
-        broadcastAll(room, { type: 'ADMIN_CHANGED', newAdmin: nextAdmin });
+      // Hand off admin if the admin truly left
+      if (username === room.adminUsername) {
+        const nextAdmin = [...room.players.keys()][0];
+        if (nextAdmin) {
+          room.adminUsername = nextAdmin;
+          broadcastAll(room, { type: 'ADMIN_CHANGED', newAdmin: nextAdmin });
+        }
       }
     }
 
