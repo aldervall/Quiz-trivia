@@ -40,3 +40,31 @@ Place `cert.pem` and `key.pem` in the `certs/` folder. The server auto-detects a
 - Node.js + Express
 - WebSockets (`ws`)
 - Open Trivia DB API
+
+## Testing & Coverage
+
+Unit tests use Node's built-in test runner. Run all tests with:
+
+```bash
+npm test
+```
+
+To generate a coverage report with [Istanbul/nyc](https://github.com/istanbuljs/nyc):
+
+```bash
+npm run coverage
+```
+
+After the run you will see a summary in the terminal, for example:
+
+```
+----------|---------|----------|---------|---------|-------------------
+File      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+----------|---------|----------|---------|---------|-------------------
+All files |   ...   |   ...    |   ...   |   ...   |
+----------|---------|----------|---------|---------|-------------------
+```
+
+A detailed HTML report is written to `coverage/index.html` and an LCOV report
+to `coverage/lcov.info` (suitable for uploading to coverage services such as
+Codecov or Coveralls).
