@@ -10,22 +10,12 @@ const path = require('path');
 const os = require('os');
 const { WebSocketServer } = require('ws');
 const QRCode = require('qrcode');
-const { Game, handleMessage: handleQuizMessage } = require('./game');
-const { ShitheadGame, handleMessage: handleShitheadMessage } = require('./shithead');
+const { ShitheadGame } = require('./shithead');
 const { fetchCategories } = require('./questions');
 const { downloadDatabase, getState: getDbState, dbStatus } = require('./local-db');
-const {
-  rooms,
-  generateRoomCode,
-  createRoom,
-  broadcastAll,
-  broadcastToDisplays,
-  sendTo,
-  buildLobbyState,
-  broadcastLobbyUpdate,
-  broadcastVoteUpdate,
-} = require('./rooms');
-const { nameToAvatar, handlePlayerDisconnect, maybeCleanupRoom } = require('./players');
+const { rooms, generateRoomCode, createRoom, buildLobbyState } = require('./server/rooms');
+const { broadcastAll, broadcastToDisplays, sendTo, broadcastLobbyUpdate, broadcastVoteUpdate } = require('./server/broadcast');
+const { handleMessage, handlePlayerDisconnect, maybeCleanupRoom } = require('./server/handlers');
 
 const PORT = process.env.PORT || 3000;
 
@@ -327,137 +317,6 @@ wss.on('connection', (ws, req) => {
 
   ws.close(4000, 'Invalid role');
 });
-
-// ─── Message handler ──────────────────────────────────────────────────────────
-
-function handleMessage(ws, role, msg, room) {
-  const { type } = msg;
-
-  // ── Display (TV / host compat) ───────────────────────────────────────────
-  if (role === 'display') {
-    switch (type) {
-      case 'START_GAME': {
-        // Compat: old host page sends START_GAME
-        const username = room.adminUsername;
-        const totalPlayers = room.players.size;
-        if (totalPlayers > 0 && room.categoryVotes.size < totalPlayers) {
-          sendTo(ws, { type: 'ERROR', code: 'NOT_ALL_VOTED', message: `Waiting for votes (${room.categoryVotes.size}/${totalPlayers}).` });
-          break;
-        }
-        const categories = Array.isArray(msg.categories) && msg.categories.length > 0 ? msg.categories : [9];
-        const questionCount = Number.isInteger(msg.questionCount) && msg.questionCount > 0 ? Math.min(msg.questionCount, 50) : 20;
-        const gameDifficulty = ['easy', 'medium', 'hard'].includes(msg.gameDifficulty) ? msg.gameDifficulty : 'easy';
-        if (!room.game) room.game = new Game(room._broadcast);
-        room.activeMiniGame = 'quiz';
-        room.game.startGame(categories, questionCount, gameDifficulty, room.language).catch(console.error);
-        break;
-      }
-      case 'SKIP':
-        if (room.game) room.game.skipReveal();
-        break;
-      case 'RESTART':
-        if (room.game) room.game.restart();
-        if (room.shitheadGame) { room.shitheadGame = null; }
-        room.categoryVotes.clear();
-        room.readyPlayers.clear();
-        room.gameSuggestions.clear();
-        room.activeMiniGame = 'lobby';
-        broadcastLobbyUpdate(room);
-        break;
-      case 'CONTINUE_GAME': {
-        const categories = Array.isArray(msg.categories) && msg.categories.length > 0 ? msg.categories : [9];
-        const questionCount = Number.isInteger(msg.questionCount) && msg.questionCount > 0 ? Math.min(msg.questionCount, 50) : 20;
-        const gameDifficulty = ['easy', 'medium', 'hard'].includes(msg.gameDifficulty) ? msg.gameDifficulty : 'easy';
-        if (room.game) room.game.continueGame(categories, questionCount, gameDifficulty).catch(console.error);
-        break;
-      }
-      case 'SET_LANGUAGE':
-        if (typeof msg.lang === 'string' && /^[a-z]{2}$/.test(msg.lang)) {
-          room.language = msg.lang;
-          broadcastAll(room, { type: 'LANGUAGE_SET', lang: room.language });
-        }
-        break;
-    }
-    return;
-  }
-
-  // ── Player messages ───────────────────────────────────────────────────────
-  switch (type) {
-
-    case 'JOIN_LOBBY':
-    case 'JOIN':
-      handleJoin(ws, msg, room);
-      break;
-
-    case 'SET_READY':
-      handleSetReady(ws, msg, room);
-      break;
-
-    case 'SUGGEST_GAME':
-      handleSuggestGame(ws, msg, room);
-      break;
-
-    case 'START_MINI_GAME': {
-      const username = room.wsToUsername.get(ws);
-      if (username !== room.adminUsername) {
-        sendTo(ws, { type: 'ERROR', code: 'NOT_ADMIN', message: 'Only admin can start the game.' });
-        break;
-      }
-      const gameType = msg.gameType || 'quiz';
-      const categories = Array.isArray(msg.categories) && msg.categories.length > 0 ? msg.categories : [9];
-      const questionCount = Number.isInteger(msg.questionCount) && msg.questionCount > 0 ? Math.min(msg.questionCount, 50) : 20;
-      const gameDifficulty = ['easy', 'medium', 'hard'].includes(msg.gameDifficulty) ? msg.gameDifficulty : 'easy';
-
-      if (gameType === 'shithead' && room.players.size < 2) {
-        sendTo(ws, { type: 'ERROR', code: 'NOT_ENOUGH_PLAYERS', message: 'Shithead requires at least 2 players.' });
-        break;
-      }
-
-      room.activeMiniGame = gameType;
-      broadcastAll(room, { type: 'MINI_GAME_STARTING', gameType, url: `/group/${room.code}/${gameType}` });
-
-      if (gameType === 'quiz') {
-        if (!room.game) room.game = new Game(room._broadcast);
-        room.game.startGame(categories, questionCount, gameDifficulty, room.language).catch(console.error);
-      } else if (gameType === 'shithead') {
-        const deckCount = Number.isInteger(msg.deckCount) ? Math.max(1, Math.min(3, msg.deckCount)) : 1;
-        room.shitheadGame = new ShitheadGame(room._broadcast);
-        for (const [uname, p] of room.players) {
-          room.shitheadGame.addPlayer(p.ws, uname);
-        }
-        room.shitheadGame.startGame(deckCount);
-      }
-      break;
-    }
-
-    case 'REMOVE_PLAYER':
-      handleRemovePlayer(ws, msg, room);
-      break;
-
-    case 'RETURN_TO_LOBBY':
-    case 'RESTART':
-      handleReturnToLobby(ws, room);
-      break;
-
-    case 'CATEGORY_VOTE':
-      handleCategoryVote(ws, msg, room);
-      break;
-
-    case 'SET_LANGUAGE': {
-      const username = room.wsToUsername.get(ws);
-      if (username !== room.adminUsername) break;
-      if (typeof msg.lang === 'string' && /^[a-z]{2}$/.test(msg.lang)) {
-        room.language = msg.lang;
-        broadcastAll(room, { type: 'LANGUAGE_SET', lang: room.language });
-      }
-      break;
-    }
-
-    default:
-      handleQuizMessage(ws, msg, room) || handleShitheadMessage(ws, msg, room);
-      break;
-  }
-}
 
 // ─── Start server ─────────────────────────────────────────────────────────────
 
