@@ -43,13 +43,15 @@ Place `cert.pem` and `key.pem` in the `certs/` folder. The server auto-detects a
 
 ## Testing & Coverage
 
-Unit tests use Node's built-in test runner. Run all tests with:
+> **Node ≥ 20 required** for the built-in test runner and nyc coverage tool.
+
+Tests use Node's built-in test runner, which auto-discovers files matching `**/*.test.{js,cjs,mjs}`. The `tests/` directory contains end-to-end browser automation scripts (not discoverable unit tests). Run the test suite with:
 
 ```bash
 npm test
 ```
 
-To generate a coverage report with [Istanbul/nyc](https://github.com/istanbuljs/nyc):
+To generate a coverage report with [Istanbul/nyc](https://github.com/istanbuljs/nyc) across all server-side modules:
 
 ```bash
 npm run coverage
@@ -58,11 +60,14 @@ npm run coverage
 After the run you will see a summary in the terminal, for example:
 
 ```
-----------|---------|----------|---------|---------|-------------------
-File      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
-----------|---------|----------|---------|---------|-------------------
-All files |   ...   |   ...    |   ...   |   ...   |
-----------|---------|----------|---------|---------|-------------------
+------------|---------|----------|---------|---------|-------------------
+File        | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+------------|---------|----------|---------|---------|-------------------
+All files   |   ...   |   ...    |   ...   |   ...   |
+ game.js    |   ...   |   ...    |   ...   |   ...   |
+ server.js  |   ...   |   ...    |   ...   |   ...   |
+ ...        |         |          |         |         |
+------------|---------|----------|---------|---------|-------------------
 ```
 
 A detailed HTML report is written to `coverage/index.html` and an LCOV report

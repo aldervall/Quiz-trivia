@@ -9,6 +9,7 @@
     "coverage": "nyc npm test"
   },
   "nyc": {
+    "all": true,
     "include": [
       "game.js",
       "local-db.js",
@@ -28,6 +29,9 @@
       "html"
     ],
     "report-dir": "coverage"
+  },
+  "engines": {
+    "node": ">=20"
   },
   "dependencies": {
     "dotenv": "^17.3.1",
