@@ -15,17 +15,17 @@ const { ShitheadGame, handleMessage: handleShitheadMessage } = require('./shithe
 const { fetchCategories } = require('./questions');
 const { downloadDatabase, getState: getDbState, dbStatus } = require('./local-db');
 const {
+  rooms,
+  generateRoomCode,
+  createRoom,
+  broadcastAll,
+  broadcastToDisplays,
+  sendTo,
   buildLobbyState,
   broadcastLobbyUpdate,
   broadcastVoteUpdate,
-  handleJoin,
-  handleDisconnect,
-  handleSetReady,
-  handleSuggestGame,
-  handleCategoryVote,
-  handleRemovePlayer,
-  handleReturnToLobby,
-} = require('./player-manager');
+} = require('./rooms');
+const { nameToAvatar, handlePlayerDisconnect, maybeCleanupRoom } = require('./players');
 
 const PORT = process.env.PORT || 3000;
 
@@ -248,77 +248,6 @@ server.on('upgrade', (req, socket, head) => {
   }
 });
 
-// ─── Room registry ───────────────────────────────────────────────────────────
-
-const rooms = new Map();
-
-function generateRoomCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  let code;
-  do {
-    code = Array.from({ length: 4 }, () =>
-      chars[Math.floor(Math.random() * chars.length)]
-    ).join('');
-  } while (rooms.has(code));
-  return code;
-}
-
-function createRoomBroadcast(roomCode) {
-  return (msg, targetWs) => {
-    const str = JSON.stringify(msg);
-    if (targetWs) {
-      if (targetWs.readyState === 1) targetWs.send(str);
-      return;
-    }
-    const room = rooms.get(roomCode);
-    if (!room) return;
-    for (const ws of [...room.playerSockets, ...room.displaySockets]) {
-      if (ws.readyState === 1) ws.send(str);
-    }
-  };
-}
-
-function createRoom(code) {
-  const broadcast = createRoomBroadcast(code);
-  rooms.set(code, {
-    code,
-    adminUsername: null,
-    activeMiniGame: 'lobby',
-    game: null,                        // lazy-created on first JOIN_LOBBY
-    playerSockets: new Set(),
-    displaySockets: new Set(),
-    wsToUsername: new Map(),           // ws → username
-    players: new Map(),                // username → { ws, isReady, avatar }
-    gameSuggestions: new Map(),        // username → gameType
-    readyPlayers: new Set(),
-    language: 'en',
-    categoryVotes: new Map(),          // username → [catId, ...]
-    createdAt: Date.now(),
-    _broadcast: broadcast,
-  });
-  return rooms.get(code);
-}
-
-// ─── Lobby helpers ────────────────────────────────────────────────────────────
-
-function broadcastAll(room, msg) {
-  const s = JSON.stringify(msg);
-  for (const ws of [...room.playerSockets, ...room.displaySockets]) {
-    if (ws.readyState === 1) ws.send(s);
-  }
-}
-
-function broadcastToDisplays(room, msg) {
-  const s = JSON.stringify(msg);
-  for (const ws of room.displaySockets) {
-    if (ws.readyState === 1) ws.send(s);
-  }
-}
-
-function sendTo(ws, msg) {
-  if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg));
-}
-
 // ─── WebSocket connection handler ────────────────────────────────────────────
 
 wss.on('connection', (ws, req) => {
@@ -398,28 +327,6 @@ wss.on('connection', (ws, req) => {
 
   ws.close(4000, 'Invalid role');
 });
-
-// ─── Disconnect handler ───────────────────────────────────────────────────────
-
-function maybeCleanupRoom(room) {
-  const totalSockets = room.playerSockets.size + room.displaySockets.size;
-  const idle = room.activeMiniGame === 'lobby' ||
-    (room.game && room.game.state === 'GAME_OVER') ||
-    (room.shitheadGame && room.shitheadGame.state === 'GAME_OVER');
-  if (totalSockets === 0 && idle) {
-    // Grace period: players navigating between pages temporarily have 0 sockets.
-    // Wait 30s before deleting so back-to-lobby transitions don't destroy the room.
-    clearTimeout(room._cleanupTimer);
-    room._cleanupTimer = setTimeout(() => {
-      if (room.playerSockets.size + room.displaySockets.size === 0) {
-        rooms.delete(room.code);
-        console.log(`[Room ${room.code}] Deleted after 30s idle.`);
-      }
-    }, 30_000);
-  } else {
-    clearTimeout(room._cleanupTimer);
-  }
-}
 
 // ─── Message handler ──────────────────────────────────────────────────────────
 
