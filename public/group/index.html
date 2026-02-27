@@ -449,6 +449,12 @@
       <button class="setting-btn q-btn" data-count="20">20</button>
       <button class="setting-btn q-btn" data-count="25">25</button>
     </div>
+    <div class="settings-row" id="deck-count-row">
+      <span class="settings-label">Decks:</span>
+      <button class="setting-btn deck-btn active" data-decks="1">1 deck</button>
+      <button class="setting-btn deck-btn" data-decks="2">2 decks</button>
+      <button class="setting-btn deck-btn" data-decks="3">3 decks</button>
+    </div>
     <button class="start-btn" id="start-btn" disabled>🚀 Start Game</button>
   </div>
 </div>
@@ -456,7 +462,7 @@
 <script>
   const GAME_TILES = [
     { type: 'quiz',     emoji: '🧠', label: 'Quiz',     available: true },
-    { type: 'shithead', emoji: '🃏', label: 'Shithead', available: false },
+    { type: 'shithead', emoji: '🃏', label: 'Shithead', available: true },
   ];
 
   const roomCode    = location.pathname.split('/')[2]?.toUpperCase();
@@ -469,6 +475,7 @@
   let ws, connectGen = 0;
   let selectedDifficulty   = 'easy';
   let selectedQuestionCount = 10;
+  let selectedDeckCount     = 1;
 
   document.getElementById('room-chip').textContent = roomCode || '????';
 
@@ -684,10 +691,12 @@
     if (!isAdmin) { section.classList.remove('visible'); return; }
     section.classList.add('visible');
 
-    // Show difficulty/question count only for quiz
-    const isQuiz = myVote === 'quiz';
-    document.getElementById('difficulty-row').style.display = isQuiz ? '' : 'none';
-    document.getElementById('questions-row').style.display  = isQuiz ? '' : 'none';
+    // Show difficulty/question count only for quiz; deck count only for shithead
+    const isQuiz     = myVote === 'quiz';
+    const isShithead = myVote === 'shithead';
+    document.getElementById('difficulty-row').style.display  = isQuiz     ? '' : 'none';
+    document.getElementById('questions-row').style.display   = isQuiz     ? '' : 'none';
+    document.getElementById('deck-count-row').style.display  = isShithead ? '' : 'none';
 
     // Start btn enabled when all players ready + someone voted a game
     const hasGame  = !!myVote;
@@ -712,9 +721,21 @@
     });
   });
 
+  document.querySelectorAll('.deck-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.deck-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedDeckCount = Number(btn.dataset.decks);
+    });
+  });
+
   // ── Start button ──────────────────────────────────────────────────────────
   document.getElementById('start-btn').addEventListener('click', () => {
     if (!myVote) return;
+    if (myVote === 'shithead') {
+      send({ type: 'START_MINI_GAME', gameType: 'shithead', deckCount: selectedDeckCount });
+      return;
+    }
     // For quiz, gather all category IDs
     fetch('/api/categories').then(r => r.json()).then(cats => {
       send({

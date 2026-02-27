@@ -26,11 +26,18 @@ class ShitheadGame {
   // ─── Deck helpers ────────────────────────────────────────────────────────
 
   _createDeck() {
+    return this._createDecks(1);
+  }
+
+  _createDecks(count) {
+    count = Math.max(1, Math.min(3, count ?? 1));
     let id = 0;
     const deck = [];
-    for (const suit of SUITS) {
-      for (const rank of RANKS) {
-        deck.push({ id: String(++id), rank, name: RANK_NAME[rank], suit });
+    for (let d = 0; d < count; d++) {
+      for (const suit of SUITS) {
+        for (const rank of RANKS) {
+          deck.push({ id: String(++id), rank, name: RANK_NAME[rank], suit });
+        }
       }
     }
     for (let i = deck.length - 1; i > 0; i--) {
@@ -192,9 +199,9 @@ class ShitheadGame {
     this._broadcastPlayers();
   }
 
-  startGame() {
+  startGame(deckCount = 1) {
     if (this.state !== 'LOBBY' || this.players.size < 2) return;
-    this.deck        = this._createDeck();
+    this.deck        = this._createDecks(deckCount);
     this.pile        = [];
     this.sevenActive = false;
     this.finishOrder = [];

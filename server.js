@@ -502,11 +502,13 @@ function handlePlayerDisconnect(ws, room) {
     }
 
     if (room.game) room.game.removePlayer(ws);
+    if (room.shitheadGame) room.shitheadGame.removePlayer(ws);
     broadcastLobbyUpdate(room);
     broadcastVoteUpdate(room);
   } else {
     // In game: null ws, keep score (existing Game behaviour)
     if (room.game) room.game.removePlayer(ws);
+    if (room.shitheadGame) room.shitheadGame.removePlayer(ws);
   }
 
   maybeCleanupRoom(room);
@@ -514,7 +516,9 @@ function handlePlayerDisconnect(ws, room) {
 
 function maybeCleanupRoom(room) {
   const totalSockets = room.playerSockets.size + room.displaySockets.size;
-  const idle = room.activeMiniGame === 'lobby' || (room.game && room.game.state === 'GAME_OVER');
+  const idle = room.activeMiniGame === 'lobby' ||
+    (room.game && room.game.state === 'GAME_OVER') ||
+    (room.shitheadGame && room.shitheadGame.state === 'GAME_OVER');
   if (totalSockets === 0 && idle) {
     // Grace period: players navigating between pages temporarily have 0 sockets.
     // Wait 30s before deleting so back-to-lobby transitions don't destroy the room.
@@ -559,6 +563,7 @@ function handleMessage(ws, role, msg, room) {
         break;
       case 'RESTART':
         if (room.game) room.game.restart();
+        if (room.shitheadGame) { room.shitheadGame = null; }
         room.categoryVotes.clear();
         room.readyPlayers.clear();
         room.gameSuggestions.clear();
@@ -614,6 +619,11 @@ function handleMessage(ws, role, msg, room) {
       }
       const result = room.game.addPlayer(ws, username);
 
+      // Reconnect to in-progress shithead game
+      if (room.activeMiniGame === 'shithead' && room.shitheadGame) {
+        room.shitheadGame.addPlayer(ws, username);
+      }
+
       const isAdmin = username === room.adminUsername;
       const gameRunning = !!(room.game && room.game.state !== 'LOBBY');
       sendTo(ws, { type: 'JOIN_OK', username, isAdmin, roomCode: room.code, avatar, lang: room.language, gameRunning });
@@ -664,13 +674,24 @@ function handleMessage(ws, role, msg, room) {
       const questionCount = Number.isInteger(msg.questionCount) && msg.questionCount > 0 ? Math.min(msg.questionCount, 50) : 20;
       const gameDifficulty = ['easy', 'medium', 'hard'].includes(msg.gameDifficulty) ? msg.gameDifficulty : 'easy';
 
+      if (gameType === 'shithead' && room.players.size < 2) {
+        sendTo(ws, { type: 'ERROR', code: 'NOT_ENOUGH_PLAYERS', message: 'Shithead requires at least 2 players.' });
+        break;
+      }
+
       room.activeMiniGame = gameType;
-      const gameUrl = `${PUBLIC_SCHEME}://${PUBLIC_HOST}/group/${room.code}/${gameType}`;
       broadcastAll(room, { type: 'MINI_GAME_STARTING', gameType, url: `/group/${room.code}/${gameType}` });
 
       if (gameType === 'quiz') {
         if (!room.game) room.game = new Game(room._broadcast);
         room.game.startGame(categories, questionCount, gameDifficulty, room.language).catch(console.error);
+      } else if (gameType === 'shithead') {
+        const deckCount = Number.isInteger(msg.deckCount) ? Math.max(1, Math.min(3, msg.deckCount)) : 1;
+        room.shitheadGame = new ShitheadGame(room._broadcast);
+        for (const [uname, p] of room.players) {
+          room.shitheadGame.addPlayer(p.ws, uname);
+        }
+        room.shitheadGame.startGame(deckCount);
       }
       break;
     }
@@ -698,6 +719,7 @@ function handleMessage(ws, role, msg, room) {
         break;
       }
       if (room.game) room.game.restart();
+      if (room.shitheadGame) { room.shitheadGame = null; }
       room.categoryVotes.clear();
       room.readyPlayers.clear();
       room.gameSuggestions.clear();
@@ -752,6 +774,41 @@ function handleMessage(ws, role, msg, room) {
         room.language = msg.lang;
         broadcastAll(room, { type: 'LANGUAGE_SET', lang: room.language });
       }
+      break;
+    }
+
+    case 'SHITHEAD_CONFIRM_SWAP': {
+      const username = room.wsToUsername.get(ws);
+      if (!username || !room.shitheadGame) break;
+      room.shitheadGame.confirmSwap(username);
+      break;
+    }
+
+    case 'SHITHEAD_SWAP_CARD': {
+      const username = room.wsToUsername.get(ws);
+      if (!username || !room.shitheadGame) break;
+      room.shitheadGame.swapCard(username, msg.handCardId, msg.faceUpCardId);
+      break;
+    }
+
+    case 'SHITHEAD_PLAY_CARDS': {
+      const username = room.wsToUsername.get(ws);
+      if (!username || !room.shitheadGame || !Array.isArray(msg.cardIds)) break;
+      room.shitheadGame.playCards(username, msg.cardIds);
+      break;
+    }
+
+    case 'SHITHEAD_PLAY_FACEDOWN': {
+      const username = room.wsToUsername.get(ws);
+      if (!username || !room.shitheadGame) break;
+      room.shitheadGame.playFaceDown(username, msg.cardId);
+      break;
+    }
+
+    case 'SHITHEAD_PICK_UP_PILE': {
+      const username = room.wsToUsername.get(ws);
+      if (!username || !room.shitheadGame) break;
+      room.shitheadGame.pickUpPile(username);
       break;
     }
   }
