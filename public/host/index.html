@@ -1598,6 +1598,12 @@
     document.getElementById('q-counter').textContent = `Q ${q.questionNumber} / ${q.totalQuestions}`;
     document.getElementById('q-answered').textContent = T('answered', 0, '?');
     document.getElementById('q-text').textContent = q.question;
+    const isTF = q.answers.length === 2;
+    for (const id of ['A','B','C','D']) {
+      const box = document.querySelector(`.answer-box.ans-${id}`);
+      if (box) box.style.display = (isTF && (id === 'C' || id === 'D')) ? 'none' : '';
+    }
+    document.getElementById('answers-grid').style.gridTemplateColumns = isTF ? '1fr' : '';
     for (const ans of q.answers) {
       document.getElementById(`ans-${ans.id}-text`).textContent = ans.text;
     }
