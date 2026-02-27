@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Game Night — Cards</title>
+  <link rel="stylesheet" href="/shared/theme.css">
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 1.25rem;
+      gap: 0.75rem;
+      min-height: 100vh;
+    }
+
+    .screen { display: none; flex-direction: column; align-items: center; width: 100%; max-width: 460px; gap: 0.75rem; }
+    .screen.active { display: flex; animation: fadeIn 0.22s ease-out both; }
+
+    /* ── CONNECTING ── */
+    #connecting { text-align: center; gap: 1.5rem; justify-content: center; min-height: 60vh; }
+    #connecting h2 { font-size: 1.4rem; color: var(--text-dim); }
+
+    /* ── WAITING ── */
+    #waiting { text-align: center; gap: 1.25rem; }
+    #waiting .big-emoji { font-size: 3.5rem; animation: float 3s ease-in-out infinite; }
+    @keyframes float { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-8px); } }
+    #waiting h2 { font-size: 1.4rem; font-weight: 800; }
+    #waiting p  { color: var(--text-dim); }
+
+    /* ── BLACK CARD ── */
+    .black-card-display {
+      width: 100%;
+      background: #111;
+      border-radius: var(--radius-lg);
+      padding: 1.5rem 1.25rem;
+      font-size: 1.15rem;
+      font-weight: 800;
+      color: #fff;
+      line-height: 1.55;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+      border: 2px solid rgba(255,255,255,0.1);
+      position: relative;
+    }
+    .black-card-display .pick-badge {
+      position: absolute;
+      bottom: 0.75rem;
+      right: 0.75rem;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: var(--radius-pill);
+      padding: 0.2rem 0.6rem;
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(255,255,255,0.7);
+    }
+    .black-card-display .blank { border-bottom: 2px solid rgba(255,255,255,0.6); display: inline-block; min-width: 4rem; }
+
+    /* ── ROUND HEADER ── */
+    .round-header {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+    }
+    .czar-badge {
+      display: flex; align-items: center; gap: 0.35rem;
+      background: rgba(255,215,0,0.12);
+      border: 1px solid rgba(255,215,0,0.3);
+      border-radius: var(--radius-pill);
+      padding: 0.25rem 0.65rem;
+      color: var(--gold, #ffd166);
+      font-size: 0.72rem; font-weight: 800;
+    }
+
+    /* ── WHITE CARDS ── */
+    #hand-grid {
+      width: 100%;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.55rem;
+    }
+    .white-card {
+      background: #f8f8f0;
+      border: 2px solid transparent;
+      border-radius: var(--radius-md);
+      padding: 0.8rem 0.7rem;
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #111;
+      cursor: pointer;
+      text-align: left;
+      line-height: 1.4;
+      min-height: 70px;
+      transition: transform 0.15s var(--ease-out-back), border-color 0.15s, box-shadow 0.15s;
+      user-select: none;
+      display: flex;
+      align-items: flex-start;
+    }
+    .white-card:active { transform: scale(0.96); }
+    .white-card.selected {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow, rgba(255,137,6,0.3));
+      transform: translateY(-3px);
+    }
+    .white-card.submitted { opacity: 0.4; cursor: not-allowed; }
+
+    /* ── SUBMIT BUTTON ── */
+    .submit-btn {
+      width: 100%; padding: 0.9rem;
+      font-size: 1.1rem; font-weight: 800;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #fff; border: none;
+      border-radius: var(--radius-md); cursor: pointer;
+      transition: all 0.2s var(--ease-out-back);
+      box-shadow: 0 4px 15px rgba(255,137,6,0.3);
+    }
+    .submit-btn:disabled { opacity: 0.3; cursor: not-allowed; box-shadow: none; }
+    .submit-btn:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(255,137,6,0.4); }
+    .submit-btn:not(:disabled):active { transform: scale(0.97); }
+
+    /* ── WAITING FOR CZAR / OTHERS ── */
+    .status-card {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      text-align: center;
+      color: var(--text-dim);
+    }
+    .status-card .status-emoji { font-size: 2.5rem; margin-bottom: 0.5rem; }
+    .status-card h3 { font-size: 1.15rem; font-weight: 800; color: var(--text); margin-bottom: 0.35rem; }
+    .status-card p  { font-size: 0.88rem; color: var(--text-dim); }
+    .submitted-count {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      background: rgba(44,182,125,0.1); border: 1px solid rgba(44,182,125,0.25);
+      border-radius: var(--radius-pill); padding: 0.3rem 0.85rem;
+      font-size: 0.82rem; font-weight: 800; color: var(--correct);
+      margin-top: 0.5rem;
+    }
+
+    /* ── JUDGING (CZAR VIEW) ── */
+    #judging { gap: 0.7rem; }
+    .submission-card {
+      width: 100%;
+      background: #f8f8f0;
+      border: 2.5px solid transparent;
+      border-radius: var(--radius-lg);
+      padding: 1rem 1rem;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s var(--ease-out-back);
+    }
+    .submission-card:active { transform: scale(0.97); }
+    .submission-card:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+    }
+    .submission-text {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #111;
+      line-height: 1.4;
+    }
+    .submission-pick-badge {
+      display: inline-block;
+      margin-top: 0.4rem;
+      font-size: 0.72rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(0,0,0,0.4);
+    }
+
+    /* ── JUDGING (spectator view) ── */
+    .submission-card-spectator {
+      width: 100%;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius-md);
+      padding: 0.9rem 1rem;
+    }
+    .submission-card-spectator .sub-text {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.4;
+    }
+
+    /* ── ROUND RESULT ── */
+    #round-result { gap: 1rem; text-align: center; }
+    #round-result .result-title { font-size: 1.5rem; font-weight: 900; }
+    #round-result .winner-name  { font-size: 2rem; font-weight: 900; }
+    .winning-card {
+      width: 100%;
+      background: #f8f8f0;
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      text-align: left;
+    }
+    .winning-card .win-black {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: rgba(0,0,0,0.4);
+      margin-bottom: 0.5rem;
+    }
+    .winning-card .win-white {
+      font-size: 1.1rem;
+      font-weight: 800;
+      color: #111;
+      line-height: 1.4;
+    }
+
+    /* ── SCOREBOARD ── */
+    .score-list {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 0.4rem;
+    }
+    .score-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.55rem 0.85rem;
+      background: var(--card);
+      border-radius: var(--radius-md);
+      border: 1px solid rgba(255,255,255,0.04);
+    }
+    .score-row.me { border-color: rgba(255,137,6,0.35); background: rgba(255,137,6,0.07); }
+    .score-rank  { font-size: 1.1rem; width: 1.8rem; text-align: center; }
+    .score-name  { flex: 1; font-size: 0.92rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .score-pts   { font-size: 1.05rem; font-weight: 900; color: var(--accent); }
+
+    /* ── GAME OVER ── */
+    #gameover { gap: 1rem; text-align: center; }
+    #gameover h1 { font-size: 2.5rem; font-weight: 900; }
+    #go-trophy { font-size: 4rem; }
+    #go-rank  { font-size: 1.4rem; font-weight: 900; }
+    #go-lobby-btn {
+      width: 100%; padding: 0.9rem;
+      font-size: 1.05rem; font-weight: 800;
+      background: rgba(255,255,255,0.06);
+      color: var(--text-dim);
+      border: 2px solid rgba(255,255,255,0.1);
+      border-radius: var(--radius-md); cursor: pointer;
+      transition: all 0.2s;
+    }
+    #go-lobby-btn:hover { background: rgba(255,255,255,0.1); color: var(--text); }
+
+    /* ── RECONNECTING ── */
+    #reconnecting {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+      display: none; align-items: center; justify-content: center;
+      flex-direction: column; gap: 1rem; z-index: 99;
+    }
+    #reconnecting.show { display: flex; }
+    #reconnecting p { color: var(--text-dim); }
+
+    /* ── TOAST ── */
+    #toast {
+      position: fixed; bottom: 1.5rem; left: 50%;
+      transform: translateX(-50%) translateY(4rem);
+      background: rgba(26,25,50,0.97); backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: var(--radius-md); padding: 0.7rem 1.5rem;
+      font-size: 1rem; font-weight: 700; color: var(--text);
+      z-index: 200; transition: transform 0.4s var(--ease-out-back);
+      pointer-events: none; text-align: center; max-width: 88vw;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); }
+
+    /* ── CZAR BADGE ── */
+    .czar-you-badge {
+      width: 100%;
+      background: rgba(255,215,0,0.1);
+      border: 1px solid rgba(255,215,0,0.3);
+      border-radius: var(--radius-md);
+      padding: 0.75rem;
+      text-align: center;
+      color: var(--gold, #ffd166);
+      font-weight: 800;
+      font-size: 0.95rem;
+    }
+
+    .section-label {
+      width: 100%;
+      font-size: 0.7rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+    }
+
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    @keyframes bounceIn { from { opacity: 0; transform: scale(0.7); } to { opacity: 1; transform: scale(1); } }
+  </style>
+</head>
+<body class="bg-mesh">
+
+<div id="reconnecting">
+  <div class="spinner"></div>
+  <p>Reconnecting...</p>
+</div>
+
+<div id="toast"></div>
+
+<!-- CONNECTING -->
+<div id="connecting" class="screen active">
+  <div class="spinner spinner-lg"></div>
+  <h2>Connecting...</h2>
+</div>
+
+<!-- WAITING -->
+<div id="waiting" class="screen">
+  <div class="big-emoji">🃏</div>
+  <h2 id="waiting-name">Joined!</h2>
+  <p id="waiting-players">Waiting for the game to start...</p>
+</div>
+
+<!-- PICKING (not czar) -->
+<div id="picking" class="screen">
+  <div class="round-header">
+    <span id="pick-round-label">Round 1 / 8</span>
+    <span class="czar-badge">👑 <span id="pick-czar-name">...</span> is Czar</span>
+  </div>
+  <div class="black-card-display" id="pick-black-card">
+    <span class="blank"></span>
+    <span class="pick-badge" id="pick-badge">Pick 1</span>
+  </div>
+  <div class="section-label" id="pick-hand-label">Your cards — tap to select</div>
+  <div id="hand-grid"></div>
+  <button class="submit-btn" id="submit-btn" disabled>Submit</button>
+</div>
+
+<!-- PICKING (czar waiting) -->
+<div id="czar-waiting" class="screen">
+  <div class="round-header">
+    <span id="cw-round-label">Round 1 / 8</span>
+    <span class="czar-badge">👑 You are Czar!</span>
+  </div>
+  <div class="black-card-display" id="cw-black-card">
+    <span class="blank"></span>
+    <span class="pick-badge" id="cw-badge">Pick 1</span>
+  </div>
+  <div class="czar-you-badge">🃏 You are the Card Czar this round.<br>Wait for everyone to pick their cards.</div>
+  <div class="status-card">
+    <div class="status-emoji">⏳</div>
+    <h3>Waiting for submissions</h3>
+    <p>Players are picking their funniest answer...</p>
+    <div class="submitted-count" id="cw-submitted-count">0 / 0 submitted</div>
+  </div>
+</div>
+
+<!-- JUDGING (czar picks) -->
+<div id="judging" class="screen">
+  <div class="round-header">
+    <span id="j-round-label">Round 1 / 8</span>
+    <span class="czar-badge">👑 Pick the winner!</span>
+  </div>
+  <div class="black-card-display" id="j-black-card">
+    <span class="blank"></span>
+  </div>
+  <div class="section-label">Tap the funniest answer</div>
+  <div id="submissions-grid"></div>
+</div>
+
+<!-- JUDGING (spectator) -->
+<div id="judging-wait" class="screen">
+  <div class="round-header">
+    <span id="jw-round-label">Round 1 / 8</span>
+    <span class="czar-badge">👑 <span id="jw-czar-name">...</span> is judging</span>
+  </div>
+  <div class="black-card-display" id="jw-black-card">
+    <span class="blank"></span>
+  </div>
+  <div class="section-label">Submissions</div>
+  <div id="spectator-submissions"></div>
+  <div class="status-card" style="margin-top:0.5rem;">
+    <div class="status-emoji">⏳</div>
+    <h3>Waiting for the Czar...</h3>
+    <p>The Czar is reading your submission right now.</p>
+  </div>
+</div>
+
+<!-- ROUND RESULT -->
+<div id="round-result" class="screen">
+  <div class="result-title gradient-text">🏆 Winner!</div>
+  <div class="winner-name" id="rr-winner">—</div>
+  <div class="winning-card">
+    <div class="win-black" id="rr-black-card"></div>
+    <div class="win-white" id="rr-white-cards"></div>
+  </div>
+  <div class="section-label">Scores</div>
+  <div class="score-list" id="rr-scores"></div>
+  <p style="font-size:0.8rem;color:var(--text-muted);margin-top:0.25rem;">Next round starting soon...</p>
+</div>
+
+<!-- GAME OVER -->
+<div id="gameover" class="screen">
+  <div id="go-trophy">🏆</div>
+  <h1 class="gradient-text">Game Over!</h1>
+  <div id="go-rank"></div>
+  <div class="score-list" id="go-scores"></div>
+  <button id="go-lobby-btn" style="display:none;margin-top:0.5rem;" class="">↩ Back to Lobby</button>
+</div>
+
+<script src="/shared/sounds.js"></script>
+<script src="/shared/confetti.js"></script>
+<script src="/shared/utils.js"></script>
+<script>
+  const roomCode   = GN.getRoomCode();
+  const storageKey = `gn-username-${roomCode}`;
+  let myUsername   = sessionStorage.getItem(storageKey) || null;
+  let isAdmin      = false;
+  let gameState    = null;
+  let myHand       = [];
+  let selectedIds  = new Set();
+  let submitted    = false;
+  let ws, connectGen = 0;
+  let toastTimer;
+
+  // ── Toast ────────────────────────────────────────────────────────────────
+  function showToast(msg, duration = 2500) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), duration);
+  }
+
+  // ── Screen ───────────────────────────────────────────────────────────────
+  function show(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const el = document.getElementById(id);
+    if (el) el.classList.add('active');
+  }
+
+  // ── WebSocket ─────────────────────────────────────────────────────────────
+  function connect() {
+    const gen = ++connectGen;
+    ws = new WebSocket(GN.buildWsUrl(roomCode, 'player'));
+    document.getElementById('reconnecting').classList.remove('show');
+
+    ws.addEventListener('open', () => {
+      if (gen !== connectGen) return;
+      send({ type: 'JOIN_LOBBY', username: myUsername });
+    });
+    ws.addEventListener('message', e => {
+      if (gen !== connectGen) return;
+      handleMsg(JSON.parse(e.data));
+    });
+    ws.addEventListener('close', () => {
+      if (gen !== connectGen) return;
+      document.getElementById('reconnecting').classList.add('show');
+      setTimeout(connect, 2000);
+    });
+    ws.addEventListener('error', () => ws.close());
+  }
+
+  function send(msg) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg)); }
+
+  // ── Message handler ───────────────────────────────────────────────────────
+  function handleMsg(msg) {
+    switch (msg.type) {
+      case 'CONNECTED':
+        document.getElementById('reconnecting').classList.remove('show');
+        break;
+
+      case 'JOIN_OK':
+        myUsername = msg.username;
+        isAdmin    = msg.isAdmin;
+        sessionStorage.setItem(storageKey, myUsername);
+        document.getElementById('waiting-name').textContent = `Hey ${GN.esc(myUsername)}! 👋`;
+        show('waiting');
+        break;
+
+      case 'LOBBY_UPDATE':
+        document.getElementById('waiting-players').textContent =
+          `${msg.totalCount || 0} players in lobby`;
+        break;
+
+      case 'CAH_JOIN_OK':
+        // Confirmed in game
+        break;
+
+      case 'CAH_GAME_STATE':
+        gameState = msg;
+        handleGameState(msg);
+        break;
+
+      case 'CAH_YOUR_STATE':
+        myHand = msg.hand || [];
+        if (document.getElementById('picking').classList.contains('active')) {
+          renderHand();
+        } else if (document.getElementById('czar-waiting').classList.contains('active')) {
+          // Update count only
+        }
+        break;
+
+      case 'CAH_NEW_ROUND':
+        submitted = false;
+        selectedIds.clear();
+        gameState = Object.assign(gameState || {}, {
+          round:    msg.round,
+          maxRounds: msg.maxRounds,
+          blackCard: msg.blackCard,
+          czar:      msg.czar,
+          state:     'PICKING',
+        });
+        GNSound.whoosh();
+        GN.haptic('medium');
+        showRoundScreen(msg.blackCard, msg.czar, msg.round, msg.maxRounds);
+        break;
+
+      case 'CAH_SUBMISSION_OK':
+        submitted = true;
+        GNSound.ready();
+        GN.haptic('success');
+        showToast('✅ Cards submitted! Waiting for others...');
+        showWaitingAfterSubmit();
+        break;
+
+      case 'CAH_JUDGING':
+        if (!gameState) break;
+        if (gameState.czar === myUsername) {
+          // Czar gets CAH_CZAR_JUDGE instead
+        } else {
+          showSpectatorJudging(msg);
+        }
+        break;
+
+      case 'CAH_CZAR_JUDGE':
+        showCzarJudging(msg);
+        break;
+
+      case 'CAH_ROUND_WINNER':
+        GNSound.fanfare();
+        GN.haptic('success');
+        if (msg.winner === myUsername) GNConfetti.sparkle(window.innerWidth / 2, 200, 30);
+        showRoundResult(msg);
+        break;
+
+      case 'CAH_GAME_OVER':
+        handleGameOver(msg);
+        break;
+
+      case 'CAH_RESTARTED':
+      case 'RESTARTED':
+        window.location.href = roomCode ? `/group/${roomCode}` : '/';
+        break;
+
+      case 'MINI_GAME_STARTING':
+        if (msg.gameType !== 'cah') {
+          window.location.href = msg.url || '/';
+        }
+        break;
+
+      case 'CAH_ERROR':
+        showToast('⚠️ ' + (msg.message || 'Something went wrong.'));
+        break;
+
+      case 'PLAYER_REMOVED':
+        if (msg.username === myUsername) {
+          sessionStorage.removeItem(storageKey);
+          window.location.href = '/?removed=1';
+        }
+        break;
+
+      case 'ERROR':
+        if (msg.code === 'ROOM_NOT_FOUND') window.location.href = '/';
+        break;
+    }
+  }
+
+  // ── Game state handler ────────────────────────────────────────────────────
+  function handleGameState(msg) {
+    if (msg.state === 'PICKING') {
+      showRoundScreen(msg.blackCard, msg.czar, msg.round, msg.maxRounds);
+      // Update submitted count if we're czar
+      if (msg.czar === myUsername) {
+        document.getElementById('cw-submitted-count').textContent =
+          `${msg.submittedCount} / ${msg.totalNonCzar} submitted`;
+      }
+    } else if (msg.state === 'JUDGING') {
+      // Will be handled by CAH_JUDGING / CAH_CZAR_JUDGE
+    } else if (msg.state === 'ROUND_OVER') {
+      // Will be handled by CAH_ROUND_WINNER
+    } else if (msg.state === 'GAME_OVER') {
+      // Will be handled by CAH_GAME_OVER
+    }
+  }
+
+  // ── Round screen ──────────────────────────────────────────────────────────
+  function showRoundScreen(blackCard, czar, round, maxRounds) {
+    const amCzar = czar === myUsername;
+    const roundLabel = `Round ${round} / ${maxRounds}`;
+
+    if (amCzar) {
+      document.getElementById('cw-round-label').textContent = roundLabel;
+      renderBlackCard(blackCard, 'cw-black-card', 'cw-badge');
+      document.getElementById('cw-submitted-count').textContent =
+        `0 / ${(gameState ? gameState.totalNonCzar : 0)} submitted`;
+      show('czar-waiting');
+    } else {
+      document.getElementById('pick-round-label').textContent = roundLabel;
+      renderBlackCard(blackCard, 'pick-black-card', 'pick-badge');
+      document.getElementById('pick-hand-label').textContent =
+        blackCard && blackCard.pick === 2
+          ? 'Your cards — tap to select 2'
+          : 'Your cards — tap to select';
+      renderHand();
+      updateSubmitBtn(blackCard);
+      show('picking');
+    }
+  }
+
+  function renderBlackCard(card, elId, badgeId) {
+    const el = document.getElementById(elId);
+    const badge = document.getElementById(badgeId);
+    if (!card || !el) return;
+    const text = card.text.replace(/_____/g, '<span class="blank">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>');
+    el.innerHTML = text + (badge ? `<span class="pick-badge" id="${badgeId}">Pick ${card.pick || 1}</span>` : '');
+  }
+
+  // ── Hand rendering ────────────────────────────────────────────────────────
+  function renderHand() {
+    const grid = document.getElementById('hand-grid');
+    grid.innerHTML = '';
+    for (const card of myHand) {
+      const div = document.createElement('div');
+      div.className = 'white-card' + (selectedIds.has(card.id) ? ' selected' : '') + (submitted ? ' submitted' : '');
+      div.textContent = card.text;
+      div.dataset.id = card.id;
+      if (!submitted) {
+        div.addEventListener('click', () => onCardClick(card.id));
+      }
+      grid.appendChild(div);
+    }
+  }
+
+  function onCardClick(id) {
+    const blackCard = gameState ? gameState.blackCard : null;
+    const pick = blackCard ? (blackCard.pick || 1) : 1;
+
+    if (selectedIds.has(id)) {
+      selectedIds.delete(id);
+    } else {
+      if (selectedIds.size >= pick) {
+        // Deselect the first selected if at limit
+        const first = selectedIds.values().next().value;
+        selectedIds.delete(first);
+      }
+      selectedIds.add(id);
+    }
+    GNSound.select();
+    GN.haptic('tick');
+    renderHand();
+    updateSubmitBtn(blackCard);
+  }
+
+  function updateSubmitBtn(blackCard) {
+    const pick = blackCard ? (blackCard.pick || 1) : 1;
+    document.getElementById('submit-btn').disabled = submitted || selectedIds.size !== pick;
+  }
+
+  function showWaitingAfterSubmit() {
+    const czar = gameState ? gameState.czar : '';
+    const amCzar = czar === myUsername;
+    if (!amCzar) {
+      const grid = document.getElementById('hand-grid');
+      if (grid) {
+        grid.querySelectorAll('.white-card').forEach(c => c.classList.add('submitted'));
+      }
+    }
+  }
+
+  document.getElementById('submit-btn').addEventListener('click', () => {
+    if (selectedIds.size === 0 || submitted) return;
+    GNSound.whoosh();
+    GN.haptic('heavy');
+    send({ type: 'CAH_SUBMIT_CARDS', cardIds: [...selectedIds] });
+  });
+
+  // ── Czar judging ──────────────────────────────────────────────────────────
+  function showCzarJudging(msg) {
+    const round = gameState ? gameState.round : '?';
+    const maxRounds = gameState ? gameState.maxRounds : '?';
+    document.getElementById('j-round-label').textContent = `Round ${round} / ${maxRounds}`;
+    renderBlackCard(msg.blackCard, 'j-black-card', null);
+
+    const grid = document.getElementById('submissions-grid');
+    grid.innerHTML = '';
+    for (const sub of msg.submissions) {
+      const div = document.createElement('div');
+      div.className = 'submission-card';
+      const texts = Array.isArray(sub.cards) ? sub.cards : [sub.cards];
+      div.innerHTML = `<div class="submission-text">${texts.map(t => GN.esc(t)).join('<br><br>')}</div>`;
+      div.addEventListener('click', () => {
+        GNSound.correct();
+        GN.haptic('heavy');
+        send({ type: 'CAH_CZAR_PICK', submissionId: sub.id });
+        // Disable all cards after picking
+        grid.querySelectorAll('.submission-card').forEach(c => c.style.pointerEvents = 'none');
+      });
+      grid.appendChild(div);
+    }
+    show('judging');
+  }
+
+  // ── Spectator judging ─────────────────────────────────────────────────────
+  function showSpectatorJudging(msg) {
+    const czar = gameState ? gameState.czar : '...';
+    const round = gameState ? gameState.round : '?';
+    const maxRounds = gameState ? gameState.maxRounds : '?';
+    document.getElementById('jw-round-label').textContent = `Round ${round} / ${maxRounds}`;
+    document.getElementById('jw-czar-name').textContent = GN.esc(czar);
+    renderBlackCard(msg.blackCard, 'jw-black-card', null);
+
+    const container = document.getElementById('spectator-submissions');
+    container.innerHTML = '';
+    for (const sub of msg.submissions) {
+      const div = document.createElement('div');
+      div.className = 'submission-card-spectator';
+      const texts = Array.isArray(sub.cards) ? sub.cards : [sub.cards];
+      div.innerHTML = `<div class="sub-text">${texts.map(t => GN.esc(t)).join('<br><br>')}</div>`;
+      container.appendChild(div);
+    }
+    show('judging-wait');
+  }
+
+  // ── Round result ──────────────────────────────────────────────────────────
+  function showRoundResult(msg) {
+    const winnerText = msg.winner === myUsername ? '🎉 You won!' : GN.esc(msg.winner) + ' won!';
+    document.getElementById('rr-winner').innerHTML = winnerText;
+
+    if (msg.blackCard) {
+      document.getElementById('rr-black-card').textContent = msg.blackCard.text;
+    }
+    const cards = Array.isArray(msg.cards) ? msg.cards : [msg.cards];
+    document.getElementById('rr-white-cards').textContent = cards.join(' / ');
+
+    const scores = (msg.scores || []).slice().sort((a, b) => b.points - a.points);
+    const medals = ['🥇', '🥈', '🥉'];
+    document.getElementById('rr-scores').innerHTML = scores.map((s, i) =>
+      `<div class="score-row${s.username === myUsername ? ' me' : ''}">
+        <span class="score-rank">${medals[i] || (i + 1) + '.'}</span>
+        <span class="score-name">${GN.esc(s.username)}</span>
+        <span class="score-pts">${s.points} pts</span>
+      </div>`
+    ).join('');
+
+    show('round-result');
+  }
+
+  // ── Game over ─────────────────────────────────────────────────────────────
+  function handleGameOver(msg) {
+    const medals  = ['🥇', '🥈', '🥉'];
+    const sorted  = (msg.scores || []).slice().sort((a, b) => b.points - a.points);
+    const myEntry = sorted.find(s => s.username === myUsername);
+    const rank    = myEntry ? myEntry.rank : sorted.length;
+
+    document.getElementById('go-trophy').textContent  = medals[rank - 1] || '🏅';
+    document.getElementById('go-rank').textContent    = rank <= 3
+      ? ['You won! 🎉', 'Runner-up! 🥈', 'Third place! 🥉'][rank - 1]
+      : `You placed #${rank}`;
+
+    document.getElementById('go-scores').innerHTML = sorted.map((s, i) =>
+      `<div class="score-row${s.username === myUsername ? ' me' : ''}">
+        <span class="score-rank">${medals[i] || (i + 1) + '.'}</span>
+        <span class="score-name">${GN.esc(s.username)}</span>
+        <span class="score-pts">${s.points} pts</span>
+      </div>`
+    ).join('');
+
+    if (rank === 1) {
+      GNSound.fanfare();
+      GN.haptic('success');
+      GNConfetti.shower(4000, 6);
+    } else {
+      GNSound.gameOver();
+      GN.haptic('medium');
+    }
+
+    if (isAdmin) {
+      document.getElementById('go-lobby-btn').style.display = '';
+    }
+    show('gameover');
+  }
+
+  document.getElementById('go-lobby-btn').addEventListener('click', () => {
+    send({ type: 'RETURN_TO_LOBBY' });
+  });
+
+  // ── Start ────────────────────────────────────────────────────────────────
+  connect();
+</script>
+</body>
+</html>
