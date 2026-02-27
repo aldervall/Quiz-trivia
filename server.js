@@ -10,8 +10,8 @@ const path = require('path');
 const os = require('os');
 const { WebSocketServer } = require('ws');
 const QRCode = require('qrcode');
-const { Game } = require('./game');
-const { ShitheadGame } = require('./shithead');
+const { Game, handleMessage: handleQuizMessage } = require('./game');
+const { ShitheadGame, handleMessage: handleShitheadMessage } = require('./shithead');
 const { fetchCategories } = require('./questions');
 const { downloadDatabase, getState: getDbState, dbStatus } = require('./local-db');
 const {
@@ -318,7 +318,7 @@ wss.on('connection', (ws, req) => {
 
     ws.on('close', () => {
       room.playerSockets.delete(ws);
-      handlePlayerDisconnect(ws, room);
+      handleDisconnect(ws, room, maybeCleanupRoom);
     });
 
     ws.on('error', (err) => console.error('Player WS error:', err.message));
@@ -385,77 +385,17 @@ function handleMessage(ws, role, msg, room) {
   switch (type) {
 
     case 'JOIN_LOBBY':
-    case 'JOIN': {
-      // Player reconnected — cancel any pending room cleanup
-      clearTimeout(room._cleanupTimer);
-      // If the original admin is reconnecting, clear the returning flag
-      if ((msg.username || '').trim() === room.adminUsername) {
-        room._returningFromGame = false;
-      }
-      const username = (msg.username || '').trim().slice(0, 20);
-      if (!username) {
-        sendTo(ws, { type: 'ERROR', code: 'INVALID_USERNAME', message: 'Username required.' });
-        break;
-      }
-
-      // Assign admin if first player
-      if (room.players.size === 0) {
-        room.adminUsername = username;
-      }
-
-      const avatar = nameToAvatar(username);
-      room.players.set(username, { ws, isReady: false, avatar });
-      room.wsToUsername.set(ws, username);
-
-      // Lazy-create game instance
-      if (!room.game) {
-        room.game = new Game(room._broadcast);
-      }
-      const result = room.game.addPlayer(ws, username);
-
-      // Reconnect to in-progress shithead game
-      if (room.activeMiniGame === 'shithead' && room.shitheadGame) {
-        room.shitheadGame.addPlayer(ws, username);
-      }
-
-      const isAdmin = username === room.adminUsername;
-      const gameRunning = !!(room.game && room.game.state !== 'LOBBY');
-      sendTo(ws, { type: 'JOIN_OK', username, isAdmin, roomCode: room.code, avatar, lang: room.language, gameRunning });
-
-      if (!result.ok) {
-        sendTo(ws, { type: 'ERROR', code: result.code, message: result.message });
-      }
-
-      broadcastLobbyUpdate(room);
-      broadcastVoteUpdate(room);
-
-      // Legacy PLAYER_JOINED for old host display
-      const playerNames = [...room.players.keys()];
-      broadcastToDisplays(room, { type: 'PLAYER_JOINED', players: playerNames, playerCount: room.players.size });
+    case 'JOIN':
+      handleJoin(ws, msg, room);
       break;
-    }
 
-    case 'SET_READY': {
-      const username = room.wsToUsername.get(ws);
-      if (!username) break;
-      if (msg.ready) {
-        room.readyPlayers.add(username);
-      } else {
-        room.readyPlayers.delete(username);
-      }
-      broadcastLobbyUpdate(room);
+    case 'SET_READY':
+      handleSetReady(ws, msg, room);
       break;
-    }
 
-    case 'SUGGEST_GAME': {
-      const username = room.wsToUsername.get(ws);
-      if (!username) break;
-      const gameType = msg.gameType;
-      if (!['quiz', 'shithead'].includes(gameType)) break;
-      room.gameSuggestions.set(username, gameType);
-      broadcastLobbyUpdate(room);
+    case 'SUGGEST_GAME':
+      handleSuggestGame(ws, msg, room);
       break;
-    }
 
     case 'START_MINI_GAME': {
       const username = room.wsToUsername.get(ws);
@@ -490,76 +430,18 @@ function handleMessage(ws, role, msg, room) {
       break;
     }
 
-    case 'REMOVE_PLAYER': {
-      const requester = room.wsToUsername.get(ws);
-      if (requester !== room.adminUsername) {
-        sendTo(ws, { type: 'ERROR', code: 'NOT_ADMIN', message: 'Only admin can remove players.' });
-        break;
-      }
-      const target = msg.username;
-      const targetPlayer = room.players.get(target);
-      if (targetPlayer && targetPlayer.ws) {
-        sendTo(targetPlayer.ws, { type: 'PLAYER_REMOVED', username: target });
-        targetPlayer.ws.close();
-      }
+    case 'REMOVE_PLAYER':
+      handleRemovePlayer(ws, msg, room);
       break;
-    }
 
     case 'RETURN_TO_LOBBY':
-    case 'RESTART': {
-      const username = room.wsToUsername.get(ws);
-      if (username !== room.adminUsername) {
-        sendTo(ws, { type: 'ERROR', code: 'NOT_ADMIN', message: 'Only admin can return to lobby.' });
-        break;
-      }
-      if (room.game) room.game.restart();
-      if (room.shitheadGame) { room.shitheadGame = null; }
-      room.categoryVotes.clear();
-      room.readyPlayers.clear();
-      room.gameSuggestions.clear();
-      room.activeMiniGame = 'lobby';
-      // Flag: suppress admin handoff while players navigate back to lobby
-      room._returningFromGame = true;
-      broadcastLobbyUpdate(room);
-      // Legacy RESTARTED for old player page
-      broadcastAll(room, { type: 'RESTARTED' });
-      break;
-    }
-
-    case 'CATEGORY_VOTE': {
-      if (room.activeMiniGame !== 'lobby') break;
-      const username = room.wsToUsername.get(ws);
-      if (!username) break;
-      const cats = Array.isArray(msg.categories)
-        ? msg.categories.slice(0, 3).map(Number).filter(n => Number.isInteger(n) && n > 0)
-        : [];
-      if (cats.length === 0) break;
-      room.categoryVotes.set(username, cats);
-      broadcastLobbyUpdate(room);
-      broadcastVoteUpdate(room);
-      break;
-    }
-
-    case 'ANSWER':
-      if (room.game) room.game.receiveAnswer(ws, msg.questionId, msg.answerId);
+    case 'RESTART':
+      handleReturnToLobby(ws, room);
       break;
 
-    case 'SKIP': {
-      const username = room.wsToUsername.get(ws);
-      if (username !== room.adminUsername) break;
-      if (room.game) room.game.skipReveal();
+    case 'CATEGORY_VOTE':
+      handleCategoryVote(ws, msg, room);
       break;
-    }
-
-    case 'CONTINUE_GAME': {
-      const username = room.wsToUsername.get(ws);
-      if (username !== room.adminUsername) break;
-      const categories = Array.isArray(msg.categories) && msg.categories.length > 0 ? msg.categories : [9];
-      const questionCount = Number.isInteger(msg.questionCount) && msg.questionCount > 0 ? Math.min(msg.questionCount, 50) : 20;
-      const gameDifficulty = ['easy', 'medium', 'hard'].includes(msg.gameDifficulty) ? msg.gameDifficulty : 'easy';
-      if (room.game) room.game.continueGame(categories, questionCount, gameDifficulty).catch(console.error);
-      break;
-    }
 
     case 'SET_LANGUAGE': {
       const username = room.wsToUsername.get(ws);
@@ -571,40 +453,9 @@ function handleMessage(ws, role, msg, room) {
       break;
     }
 
-    case 'SHITHEAD_CONFIRM_SWAP': {
-      const username = room.wsToUsername.get(ws);
-      if (!username || !room.shitheadGame) break;
-      room.shitheadGame.confirmSwap(username);
+    default:
+      handleQuizMessage(ws, msg, room) || handleShitheadMessage(ws, msg, room);
       break;
-    }
-
-    case 'SHITHEAD_SWAP_CARD': {
-      const username = room.wsToUsername.get(ws);
-      if (!username || !room.shitheadGame) break;
-      room.shitheadGame.swapCard(username, msg.handCardId, msg.faceUpCardId);
-      break;
-    }
-
-    case 'SHITHEAD_PLAY_CARDS': {
-      const username = room.wsToUsername.get(ws);
-      if (!username || !room.shitheadGame || !Array.isArray(msg.cardIds)) break;
-      room.shitheadGame.playCards(username, msg.cardIds);
-      break;
-    }
-
-    case 'SHITHEAD_PLAY_FACEDOWN': {
-      const username = room.wsToUsername.get(ws);
-      if (!username || !room.shitheadGame) break;
-      room.shitheadGame.playFaceDown(username, msg.cardId);
-      break;
-    }
-
-    case 'SHITHEAD_PICK_UP_PILE': {
-      const username = room.wsToUsername.get(ws);
-      if (!username || !room.shitheadGame) break;
-      room.shitheadGame.pickUpPile(username);
-      break;
-    }
   }
 }
 
