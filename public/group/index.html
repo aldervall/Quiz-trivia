@@ -351,7 +351,13 @@
       <button class="setting-btn q-btn" data-count="20">20</button>
       <button class="setting-btn q-btn" data-count="25">25</button>
     </div>
-    <div class="settings-row" id="deck-count-row">
+    <div class="settings-row" id="rounds-row">
+      <span class="settings-label">Rounds:</span>
+      <button class="setting-btn rounds-btn active" data-rounds="5">5</button>
+      <button class="setting-btn rounds-btn" data-rounds="8">8</button>
+      <button class="setting-btn rounds-btn" data-rounds="12">12</button>
+      <button class="setting-btn rounds-btn" data-rounds="15">15</button>
+    </div>
       <span class="settings-label">Decks:</span>
       <button class="setting-btn deck-btn active" data-decks="1">1 deck</button>
       <button class="setting-btn deck-btn" data-decks="2">2 decks</button>
@@ -368,6 +374,7 @@
   const GAME_TILES = [
     { type: 'quiz',     emoji: '🧠', label: 'Quiz',     available: true },
     { type: 'shithead', emoji: '🃏', label: 'Shithead', available: true },
+    { type: 'cah',      emoji: '🖤', label: 'Cards',    available: true },
   ];
 
   const roomCode    = GN.getRoomCode();
@@ -381,6 +388,7 @@
   let selectedDifficulty    = 'easy';
   let selectedQuestionCount = 10;
   let selectedDeckCount     = 1;
+  let selectedRoundCount    = 5;
 
   document.getElementById('room-chip').textContent = roomCode || '????';
   document.getElementById('rules-link').href =
@@ -577,9 +585,11 @@
     section.classList.add('visible');
     const isQuiz     = myVote === 'quiz';
     const isShithead = myVote === 'shithead';
+    const isCah      = myVote === 'cah';
     document.getElementById('difficulty-row').style.display  = isQuiz     ? '' : 'none';
     document.getElementById('questions-row').style.display   = isQuiz     ? '' : 'none';
     document.getElementById('deck-count-row').style.display  = isShithead ? '' : 'none';
+    document.getElementById('rounds-row').style.display      = isCah      ? '' : 'none';
     const hasGame  = !!myVote;
     const allReady = state.allReady;
     const canStart = state.totalCount > 0 && allReady && hasGame;
@@ -611,6 +621,14 @@
       GNSound.tick();
     });
   });
+  document.querySelectorAll('.rounds-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.rounds-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      selectedRoundCount = Number(btn.dataset.rounds);
+      GNSound.tick();
+    });
+  });
 
   // ── Start button ──────────────────────────────────────────────────────
   document.getElementById('start-btn').addEventListener('click', () => {
@@ -619,6 +637,10 @@
     GN.haptic('heavy');
     if (myVote === 'shithead') {
       send({ type: 'START_MINI_GAME', gameType: 'shithead', deckCount: selectedDeckCount });
+      return;
+    }
+    if (myVote === 'cah') {
+      send({ type: 'START_MINI_GAME', gameType: 'cah', maxRounds: selectedRoundCount });
       return;
     }
     fetch('/api/categories').then(r => r.json()).then(cats => {

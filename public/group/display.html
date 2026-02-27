@@ -398,6 +398,88 @@
     .sh-swap-icon { font-size: 4rem; }
     .sh-swap-subtitle { color: var(--text-dim); font-size: 1.1rem; }
     .sh-gameover-icon { font-size: 5rem; }
+
+    /* ── CAH DISPLAY ── */
+    #cah-display { gap: 1.5rem; padding-top: 1.5rem; align-items: center; justify-content: center; }
+    .cah-round-header {
+      display: flex; align-items: center; justify-content: space-between;
+      width: 100%; font-size: 1.1rem; font-weight: 800; color: var(--text-muted);
+    }
+    .cah-czar-badge {
+      display: flex; align-items: center; gap: 0.5rem;
+      background: rgba(255,215,0,0.12); border: 1px solid rgba(255,215,0,0.3);
+      border-radius: var(--radius-pill); padding: 0.35rem 1rem;
+      font-size: 1rem; font-weight: 800; color: var(--gold, #ffd166);
+    }
+    .cah-black-card-display {
+      width: min(540px, 90%); background: #111;
+      border-radius: var(--radius-xl); padding: 2.5rem 2rem;
+      font-size: clamp(1.6rem, 3vw, 2.4rem); font-weight: 800; color: #fff;
+      line-height: 1.5; text-align: center;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.6); border: 2px solid rgba(255,255,255,0.1);
+    }
+    .cah-blank-underline { border-bottom: 3px solid rgba(255,255,255,0.6); display: inline-block; min-width: 5rem; }
+    .cah-status-row {
+      display: flex; align-items: center; gap: 1.5rem;
+      font-size: 1.3rem; font-weight: 800; color: var(--text-dim);
+    }
+    .cah-submitted-badge {
+      background: rgba(44,182,125,0.12); border: 1px solid rgba(44,182,125,0.3);
+      border-radius: var(--radius-pill); padding: 0.5rem 1.25rem;
+      font-size: 1.2rem; font-weight: 800; color: var(--correct);
+    }
+    .cah-submissions-grid {
+      width: min(900px, 95%); display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1rem;
+    }
+    .cah-sub-card {
+      background: #f8f8f0; border-radius: var(--radius-lg);
+      padding: 1.25rem 1rem;
+      font-size: 1.05rem; font-weight: 700; color: #111;
+      line-height: 1.45; min-height: 80px;
+      animation: bounceIn 0.4s var(--ease-out-back) both;
+    }
+    .cah-winner-card {
+      background: #111; border-radius: var(--radius-xl);
+      padding: 2rem 2rem; width: min(540px, 92%);
+      box-shadow: 0 0 40px rgba(255,215,0,0.3); border: 2px solid rgba(255,215,0,0.4);
+    }
+    .cah-winner-card .cah-winner-name {
+      font-size: 2.2rem; font-weight: 900; color: var(--gold, #ffd166);
+      margin-bottom: 0.75rem;
+    }
+    .cah-winner-card .cah-winner-text {
+      font-size: 1.5rem; font-weight: 800; color: #fff; line-height: 1.4;
+    }
+    .cah-scoreboard {
+      display: flex; flex-wrap: wrap; gap: 0.65rem; justify-content: center;
+    }
+    .cah-score-chip {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0.5rem 1.1rem; border-radius: var(--radius-pill);
+      background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.07);
+      font-size: 1.05rem; font-weight: 700;
+    }
+    .cah-score-chip.top { border-color: rgba(255,215,0,0.4); background: rgba(255,215,0,0.08); color: var(--gold, #ffd166); }
+    .cah-pts { color: var(--accent); font-weight: 900; margin-left: 0.25rem; }
+    #cah-gameover { align-items: center; justify-content: center; gap: 2rem; flex: 1; }
+    #cah-gameover h1 { font-size: clamp(3rem, 6vw, 5rem); color: var(--accent); font-weight: 900; }
+    .cah-go-scores { display: flex; flex-direction: column; gap: 0.7rem; width: 100%; max-width: 580px; }
+    .cah-go-row {
+      display: flex; align-items: center; gap: 1.25rem;
+      padding: 1rem 1.5rem; background: var(--card-solid);
+      border-radius: var(--radius-lg); font-size: 1.3rem; font-weight: 700;
+      border: 1px solid rgba(255,255,255,0.06); animation: slideUp 0.4s ease-out both;
+    }
+    .cah-go-row:nth-child(1) { border-color: rgba(255,215,0,0.4); background: rgba(255,215,0,0.07); }
+    .cah-go-row:nth-child(2) { border-color: rgba(192,192,192,0.25); background: rgba(192,192,192,0.04); }
+    .cah-go-row:nth-child(3) { border-color: rgba(205,127,50,0.3); background: rgba(205,127,50,0.05); }
+    .cah-go-pos { font-size: 2rem; width: 2.8rem; text-align: center; }
+    .cah-go-pts { margin-left: auto; color: var(--accent); font-size: 1.4rem; font-weight: 900; }
+    .cah-sub-screen { display: none; flex-direction: column; align-items: center; gap: 1.5rem; width: 100%; }
+    .cah-sub-screen.active { display: flex; }
+    @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: none; } }
   </style>
 </head>
 <body class="bg-mesh bg-noise">
@@ -501,6 +583,49 @@
 </div>
 
 <div id="sh-toast"></div>
+
+<!-- CAH -->
+<div id="cah-display" class="screen">
+  <!-- Picking sub-screen -->
+  <div id="cah-picking" class="cah-sub-screen">
+    <div class="cah-round-header">
+      <span id="cah-round-label">Round 1 / 8</span>
+      <span class="cah-czar-badge">👑 <span id="cah-czar-name">...</span> is Czar</span>
+    </div>
+    <div class="cah-black-card-display" id="cah-black-card-text">...</div>
+    <div class="cah-status-row">
+      <span>Waiting for submissions</span>
+      <span class="cah-submitted-badge" id="cah-submitted-badge">0 / 0</span>
+    </div>
+    <div class="cah-scoreboard" id="cah-scores-picking"></div>
+  </div>
+  <!-- Judging sub-screen -->
+  <div id="cah-judging-screen" class="cah-sub-screen">
+    <div class="cah-round-header">
+      <span id="cah-j-round-label">Round 1 / 8</span>
+      <span class="cah-czar-badge">👑 <span id="cah-j-czar-name">...</span> is judging</span>
+    </div>
+    <div class="cah-black-card-display" id="cah-j-black-card-text">...</div>
+    <div class="cah-submissions-grid" id="cah-submissions-grid"></div>
+  </div>
+  <!-- Winner sub-screen -->
+  <div id="cah-winner-screen" class="cah-sub-screen">
+    <div class="cah-round-header">
+      <span id="cah-w-round-label">Round 1 / 8</span>
+    </div>
+    <div class="cah-winner-card">
+      <div class="cah-winner-name" id="cah-w-winner"></div>
+      <div class="cah-winner-text" id="cah-w-cards"></div>
+    </div>
+    <div class="cah-scoreboard" id="cah-scores-winner"></div>
+  </div>
+  <!-- Game Over sub-screen -->
+  <div id="cah-gameover" style="display:none;flex-direction:column;align-items:center;gap:2rem;flex:1;justify-content:center;">
+    <div style="font-size:5rem;">🃏</div>
+    <h1>Game Over!</h1>
+    <div class="cah-go-scores" id="cah-go-scores"></div>
+  </div>
+</div>
 
 <script src="/shared/sounds.js"></script>
 <script src="/shared/confetti.js"></script>
@@ -636,6 +761,44 @@
         handleShitheadGameOver(msg);
         break;
       case 'SHITHEAD_RESTARTED':
+        activeMiniGame = 'lobby';
+        showScreen('lobby-display');
+        break;
+      case 'CAH_GAME_STATE':
+        if (activeMiniGame === 'cah') handleCahGameState(msg);
+        break;
+      case 'CAH_NEW_ROUND':
+        if (activeMiniGame === 'cah') {
+          GNSound.whoosh();
+          showCahScreen('picking');
+          renderCahBlackCard(msg.blackCard, 'cah-black-card-text');
+          document.getElementById('cah-round-label').textContent = `Round ${msg.round} / ${msg.maxRounds}`;
+          document.getElementById('cah-czar-name').textContent = GN.esc(msg.czar || '');
+          document.getElementById('cah-submitted-badge').textContent = `0 / ${msg.totalNonCzar || '?'}`;
+        }
+        break;
+      case 'CAH_JUDGING':
+        if (activeMiniGame === 'cah') {
+          showCahScreen('judging');
+          renderCahJudging(msg);
+        }
+        break;
+      case 'CAH_ROUND_WINNER':
+        if (activeMiniGame === 'cah') {
+          GNSound.correct();
+          GNConfetti.sparkle(window.innerWidth / 2, window.innerHeight / 3, 20);
+          showCahScreen('winner');
+          renderCahWinner(msg);
+        }
+        break;
+      case 'CAH_GAME_OVER':
+        if (activeMiniGame === 'cah') {
+          GNSound.fanfare();
+          GNConfetti.shower(4000, 6);
+          handleCahGameOver(msg);
+        }
+        break;
+      case 'CAH_RESTARTED':
         activeMiniGame = 'lobby';
         showScreen('lobby-display');
         break;
@@ -962,6 +1125,93 @@
         <span>${GN.esc(u)}</span>
         ${u === msg.shithead ? '<span class="sh-shithead-label">💩 Shithead</span>' : ''}
       </div>`).join('');
+  }
+
+  // ── CAH display helpers ───────────────────────────────────────────────
+  function showCahScreen(sub) {
+    showScreen('cah-display');
+    document.getElementById('cah-picking').classList.toggle('active', sub === 'picking');
+    document.getElementById('cah-judging-screen').classList.toggle('active', sub === 'judging');
+    document.getElementById('cah-winner-screen').classList.toggle('active', sub === 'winner');
+    document.getElementById('cah-gameover').style.display = sub === 'gameover' ? 'flex' : 'none';
+  }
+
+  function renderCahBlackCard(card, elId) {
+    const el = document.getElementById(elId);
+    if (!el || !card) return;
+    el.innerHTML = card.text.replace(/_____/g, '<span class="cah-blank-underline">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>');
+  }
+
+  function renderCahScores(scores, elId) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    const sorted = (scores || []).slice().sort((a, b) => b.points - a.points);
+    const medals = ['🥇', '🥈', '🥉'];
+    el.innerHTML = sorted.map((s, i) =>
+      `<div class="cah-score-chip${i < 3 ? ' top' : ''}">
+        <span>${medals[i] || `${i+1}.`}</span>
+        <span>${GN.esc(s.username)}</span>
+        <span class="cah-pts">${s.points} pts</span>
+      </div>`
+    ).join('');
+  }
+
+  function handleCahGameState(msg) {
+    if (msg.state === 'PICKING') {
+      showCahScreen('picking');
+      renderCahBlackCard(msg.blackCard, 'cah-black-card-text');
+      const round = msg.round || '?';
+      const max   = msg.maxRounds || '?';
+      document.getElementById('cah-round-label').textContent = `Round ${round} / ${max}`;
+      document.getElementById('cah-czar-name').textContent = GN.esc(msg.czar || '');
+      document.getElementById('cah-submitted-badge').textContent = `${msg.submittedCount || 0} / ${msg.totalNonCzar || '?'}`;
+    } else if (msg.state === 'JUDGING') {
+      showCahScreen('judging');
+    } else if (msg.state === 'GAME_OVER') {
+      // handled by CAH_GAME_OVER
+    } else if (msg.state === 'LOBBY') {
+      showScreen('lobby-display');
+    }
+  }
+
+  function renderCahJudging(msg) {
+    const gameState = { czar: document.getElementById('cah-czar-name').textContent };
+    const czar = document.getElementById('cah-j-czar-name');
+    if (czar) czar.textContent = document.getElementById('cah-czar-name').textContent;
+    const round = document.getElementById('cah-round-label').textContent;
+    document.getElementById('cah-j-round-label').textContent = round;
+    renderCahBlackCard(msg.blackCard, 'cah-j-black-card-text');
+    const grid = document.getElementById('cah-submissions-grid');
+    grid.innerHTML = '';
+    for (const sub of (msg.submissions || [])) {
+      const div = document.createElement('div');
+      div.className = 'cah-sub-card';
+      const texts = Array.isArray(sub.cards) ? sub.cards : [sub.cards];
+      div.textContent = texts.join(' / ');
+      grid.appendChild(div);
+    }
+  }
+
+  function renderCahWinner(msg) {
+    const round = document.getElementById('cah-round-label').textContent;
+    document.getElementById('cah-w-round-label').textContent = round;
+    document.getElementById('cah-w-winner').textContent = `🏆 ${GN.esc(msg.winner || '')} wins!`;
+    const cards = Array.isArray(msg.cards) ? msg.cards : [msg.cards];
+    document.getElementById('cah-w-cards').textContent = cards.join(' / ');
+    renderCahScores(msg.scores, 'cah-scores-winner');
+  }
+
+  function handleCahGameOver(msg) {
+    showCahScreen('gameover');
+    const sorted = (msg.scores || []).slice().sort((a, b) => b.points - a.points);
+    const medals = ['🥇', '🥈', '🥉'];
+    document.getElementById('cah-go-scores').innerHTML = sorted.map((s, i) =>
+      `<div class="cah-go-row" style="animation-delay:${i * 0.15}s">
+        <span class="cah-go-pos">${medals[i] || `${i+1}.`}</span>
+        <span>${GN.esc(s.username)}</span>
+        <span class="cah-go-pts">${s.points} pts</span>
+      </div>`
+    ).join('');
   }
 </script>
 </body>

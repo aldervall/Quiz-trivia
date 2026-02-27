@@ -2,6 +2,7 @@
 
 const { Game } = require('../game');
 const { ShitheadGame } = require('../shithead');
+const { CAHGame } = require('../cah');
 const { rooms, nameToAvatar } = require('./rooms');
 const { broadcastAll, broadcastToDisplays, sendTo, broadcastLobbyUpdate, broadcastVoteUpdate } = require('./broadcast');
 
@@ -11,7 +12,8 @@ function maybeCleanupRoom(room) {
   const totalSockets = room.playerSockets.size + room.displaySockets.size;
   const idle = room.activeMiniGame === 'lobby' ||
     (room.game && room.game.state === 'GAME_OVER') ||
-    (room.shitheadGame && room.shitheadGame.state === 'GAME_OVER');
+    (room.shitheadGame && room.shitheadGame.state === 'GAME_OVER') ||
+    (room.cahGame && room.cahGame.state === 'GAME_OVER');
   if (totalSockets === 0 && idle) {
     // Grace period: players navigating between pages temporarily have 0 sockets.
     // Wait 30s before deleting so back-to-lobby transitions don't destroy the room.
@@ -69,12 +71,14 @@ function handlePlayerDisconnect(ws, room) {
 
     if (room.game) room.game.removePlayer(ws);
     if (room.shitheadGame) room.shitheadGame.removePlayer(ws);
+    if (room.cahGame) room.cahGame.removePlayer(ws);
     broadcastLobbyUpdate(room);
     broadcastVoteUpdate(room);
   } else {
     // In game: null ws, keep score (existing Game behaviour)
     if (room.game) room.game.removePlayer(ws);
     if (room.shitheadGame) room.shitheadGame.removePlayer(ws);
+    if (room.cahGame) room.cahGame.removePlayer(ws);
   }
 
   maybeCleanupRoom(room);
@@ -109,6 +113,7 @@ function handleMessage(ws, role, msg, room) {
       case 'RESTART':
         if (room.game) room.game.restart();
         if (room.shitheadGame) { room.shitheadGame = null; }
+        if (room.cahGame) { room.cahGame = null; }
         room.categoryVotes.clear();
         room.readyPlayers.clear();
         room.gameSuggestions.clear();
@@ -177,6 +182,10 @@ function handleMessage(ws, role, msg, room) {
       if (room.activeMiniGame === 'shithead' && room.shitheadGame) {
         room.shitheadGame.addPlayer(ws, username);
       }
+      // Reconnect to in-progress CAH game
+      if (room.activeMiniGame === 'cah' && room.cahGame) {
+        room.cahGame.addPlayer(ws, username);
+      }
 
       broadcastLobbyUpdate(room);
       broadcastVoteUpdate(room);
@@ -203,7 +212,7 @@ function handleMessage(ws, role, msg, room) {
       const username = room.wsToUsername.get(ws);
       if (!username) break;
       const gameType = msg.gameType;
-      if (!['quiz', 'shithead'].includes(gameType)) break;
+      if (!['quiz', 'shithead', 'cah'].includes(gameType)) break;
       room.gameSuggestions.set(username, gameType);
       broadcastLobbyUpdate(room);
       break;
@@ -224,6 +233,10 @@ function handleMessage(ws, role, msg, room) {
         sendTo(ws, { type: 'ERROR', code: 'NOT_ENOUGH_PLAYERS', message: 'Shithead requires at least 2 players.' });
         break;
       }
+      if (gameType === 'cah' && room.players.size < 3) {
+        sendTo(ws, { type: 'ERROR', code: 'NOT_ENOUGH_PLAYERS', message: 'Cards requires at least 3 players.' });
+        break;
+      }
 
       room.activeMiniGame = gameType;
       broadcastAll(room, { type: 'MINI_GAME_STARTING', gameType, url: `/group/${room.code}/${gameType}` });
@@ -238,6 +251,13 @@ function handleMessage(ws, role, msg, room) {
           room.shitheadGame.addPlayer(p.ws, uname);
         }
         room.shitheadGame.startGame(deckCount);
+      } else if (gameType === 'cah') {
+        const maxRounds = Number.isInteger(msg.maxRounds) ? Math.max(1, Math.min(20, msg.maxRounds)) : 8;
+        room.cahGame = new CAHGame(room._broadcast);
+        for (const [uname, p] of room.players) {
+          room.cahGame.addPlayer(p.ws, uname);
+        }
+        room.cahGame.startGame(maxRounds);
       }
       break;
     }
@@ -266,6 +286,7 @@ function handleMessage(ws, role, msg, room) {
       }
       if (room.game) room.game.restart();
       if (room.shitheadGame) { room.shitheadGame = null; }
+      if (room.cahGame) { room.cahGame = null; }
       room.categoryVotes.clear();
       room.readyPlayers.clear();
       room.gameSuggestions.clear();
@@ -365,6 +386,20 @@ function handleMessage(ws, role, msg, room) {
       const username = room.wsToUsername.get(ws);
       if (!username || !room.shitheadGame) break;
       room.shitheadGame.pickUpPile(username);
+      break;
+    }
+
+    case 'CAH_SUBMIT_CARDS': {
+      const username = room.wsToUsername.get(ws);
+      if (!username || !room.cahGame || !Array.isArray(msg.cardIds)) break;
+      room.cahGame.submitCards(username, msg.cardIds);
+      break;
+    }
+
+    case 'CAH_CZAR_PICK': {
+      const username = room.wsToUsername.get(ws);
+      if (!username || !room.cahGame) break;
+      room.cahGame.czarPick(username, msg.submissionId);
       break;
     }
   }
