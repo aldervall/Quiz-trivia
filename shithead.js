@@ -220,6 +220,8 @@ class ShitheadGame {
     }
     this._broadcastGameState();
     this._broadcastTurnInfo();
+    // Bot auto-play
+    this._botPlay();
   }
 
   // ─── Public API ──────────────────────────────────────────────────────────
@@ -254,9 +256,125 @@ class ShitheadGame {
       faceDown:   [],
       swapReady:  false,
       hasFinished: false,
+      isBot:      false,
     });
     this._sendTo(ws, { type: 'SHITHEAD_JOIN_OK', username });
     this._broadcastPlayers();
+
+    // Remove bot if we now have 2+ real players, otherwise add bot if needed
+    const realPlayers = [...this.players.values()].filter(p => !p.isBot);
+    if (realPlayers.length >= 2) {
+      this._removeBot();
+    } else {
+      this._maybeAddBot();
+    }
+  }
+
+  _maybeAddBot() {
+    const realPlayers = [...this.players.values()].filter(p => !p.isBot);
+    if (realPlayers.length === 1 && this.players.size < 6) {
+      // Add a bot to make it 2 players
+      const botName = `🤖 Bot`;
+      this.players.set(botName, {
+        ws: null,
+        hand:       [],
+        faceUp:     [],
+        faceDown:   [],
+        swapReady:  false,
+        hasFinished: false,
+        isBot:      true,
+      });
+      this._broadcastPlayers();
+    }
+  }
+
+  _removeBot() {
+    for (const [username, p] of this.players) {
+      if (p.isBot) {
+        this.players.delete(username);
+        break;
+      }
+    }
+    this._broadcastPlayers();
+  }
+
+  _autoReadyBot() {
+    if (this.state !== 'SWAP') return;
+    for (const [username, p] of this.players) {
+      if (p.isBot && !p.swapReady) {
+        p.swapReady = true;
+        const readyCount = [...this.players.values()].filter(pl => pl.swapReady).length;
+        const total      = this.players.size;
+        this._broadcast({ type: 'SHITHEAD_SWAP_READY', readyCount, total });
+        // Check if all ready to transition to PLAYING
+        if (readyCount === total) {
+          this._transitionToPlaying();
+        }
+        break;
+      }
+    }
+  }
+
+  _transitionToPlaying() {
+    if ([...this.players.values()].filter(pl => pl.swapReady).length === this.players.size) {
+      this.state = 'PLAYING';
+      this._broadcastGameState();
+      this._broadcastTurnInfo();
+      // Bot auto-play if it's their turn
+      this._botPlay();
+    }
+  }
+
+  _botPlay() {
+    if (this.state !== 'PLAYING') return;
+    const botUsername = this._currentPlayer();
+    const bot = this.players.get(botUsername);
+    if (!bot || !bot.isBot) return;
+
+    // Simple bot AI: play highest valid card
+    const hasHand = bot.hand.length > 0;
+    const hasFaceUp = bot.faceUp.length > 0;
+    const hasFaceDown = bot.faceDown.length > 0;
+
+    let cardsToPlay = [];
+    let zone = null;
+
+    if (hasHand) {
+      zone = 'hand';
+      const validCards = bot.hand.filter(c => this._canPlay(c.rank));
+      if (validCards.length > 0) {
+        // Find highest valid card by rank
+        const maxRank = Math.max(...validCards.map(c => c.rank));
+        const cardToPlay = validCards.find(c => c.rank === maxRank);
+        cardsToPlay = [cardToPlay.id];
+      }
+    } else if (hasFaceUp) {
+      zone = 'faceup';
+      const validCards = bot.faceUp.filter(c => this._canPlay(c.rank));
+      if (validCards.length > 0) {
+        const maxRank = Math.max(...validCards.map(c => c.rank));
+        const cardToPlay = validCards.find(c => c.rank === maxRank);
+        cardsToPlay = [cardToPlay.id];
+      }
+    } else if (hasFaceDown) {
+      zone = 'facedown';
+      cardsToPlay = [bot.faceDown[0].id];
+    }
+
+    // Delay bot play for realism (1-2 seconds)
+    const delay = 1000 + Math.random() * 1000;
+    setTimeout(() => {
+      if (this._currentPlayer() === botUsername) {
+        if (cardsToPlay.length > 0 && zone !== 'facedown') {
+          this.playCards(botUsername, cardsToPlay);
+        } else if (zone === 'facedown') {
+          this.playFaceDown(botUsername, cardsToPlay[0]);
+        } else {
+          // No valid moves, pick up pile
+          this.pickUpPile(botUsername);
+        }
+      }
+    }, delay);
   }
 
   startGame(deckCount = 1) {
@@ -296,6 +414,9 @@ class ShitheadGame {
     const readyCount = [...this.players.values()].filter(pl => pl.swapReady).length;
     const total      = this.players.size;
     this._broadcast({ type: 'SHITHEAD_SWAP_READY', readyCount, total });
+
+    // Auto-ready bot
+    this._autoReadyBot();
 
     if (readyCount === total) {
       this.state = 'PLAYING';
