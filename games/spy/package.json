@@ -1,0 +1,6 @@
+{
+  "name": "spy-game",
+  "version": "1.0.0",
+  "description": "Deduction word-guessing game for small-hours",
+  "main": "server/index.js"
+}
