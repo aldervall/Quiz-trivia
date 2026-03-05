@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Game Night — Spy (Display)</title>
+  <link rel="stylesheet" href="/shared/theme.css">
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      gap: 2rem;
+      min-height: 100vh;
+      background: var(--bg);
+    }
+
+    .display-container {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      max-width: 1600px;
+      gap: 2rem;
+      min-height: 80vh;
+      text-align: center;
+    }
+
+    .display-container.active {
+      display: flex;
+      animation: slideIn 0.3s ease-out both;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ── ROUND & TIMER HEADER ── */
+    .display-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      gap: 2rem;
+      padding: 1rem 2rem;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: var(--radius-lg);
+    }
+
+    .round-indicator {
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+    }
+
+    .timer-display {
+      font-size: 4rem;
+      font-weight: 900;
+      color: var(--neon);
+      text-align: center;
+      min-width: 150px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .timer-display.warning {
+      color: #ff6b6b;
+      animation: pulse 0.6s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+    }
+
+    /* ── PHASE: SETUP ── */
+    #phase-setup {
+      gap: 3rem;
+    }
+
+    #phase-setup .big-emoji {
+      font-size: 6rem;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-20px); }
+    }
+
+    #phase-setup h1 {
+      font-size: 3.5rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    #phase-setup p {
+      font-size: 1.5rem;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    /* ── PHASE: CLUES ── */
+    #phase-clues {
+      gap: 2rem;
+      width: 100%;
+    }
+
+    #phase-clues h1 {
+      font-size: 3.5rem;
+      font-weight: 900;
+      color: var(--accent);
+    }
+
+    #phase-clues .subtitle {
+      font-size: 1.3rem;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    .clues-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      width: 100%;
+      margin-top: 1rem;
+    }
+
+    .clue-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      background: linear-gradient(135deg, rgba(255, 137, 6, 0.1), rgba(229, 49, 112, 0.1));
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-lg);
+      animation: slideIn 0.4s ease-out both;
+      min-height: 150px;
+      gap: 1rem;
+      box-shadow: 0 0 20px rgba(255, 137, 6, 0.1);
+    }
+
+    .clue-card .author {
+      font-size: 0.9rem;
+      font-weight: 800;
+      color: var(--neon);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .clue-card .text {
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    /* ── PHASE: GUESS ── */
+    #phase-guess {
+      gap: 3rem;
+    }
+
+    #phase-guess h1 {
+      font-size: 3.5rem;
+      font-weight: 900;
+      color: var(--accent2);
+    }
+
+    #phase-guess .big-emoji {
+      font-size: 5rem;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    #phase-guess p {
+      font-size: 1.5rem;
+      color: var(--text-dim);
+      font-weight: 600;
+    }
+
+    /* ── PHASE: REVEAL ── */
+    #phase-reveal {
+      gap: 2.5rem;
+    }
+
+    #phase-reveal h1 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      color: var(--text-muted);
+    }
+
+    .reveal-word {
+      font-size: 4rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: slideIn 0.5s ease-out both;
+      letter-spacing: 0.05em;
+    }
+
+    .reveal-guess {
+      font-size: 1.8rem;
+      font-weight: 700;
+      color: var(--text-dim);
+      margin: 1rem 0;
+    }
+
+    .result-badge {
+      display: inline-block;
+      padding: 1rem 2rem;
+      border-radius: var(--radius-pill);
+      font-weight: 900;
+      font-size: 1.8rem;
+      animation: slideIn 0.5s ease-out both;
+      box-shadow: 0 0 30px rgba(0, 0, 0, 0.5);
+    }
+
+    .result-badge.correct {
+      background: linear-gradient(135deg, #44ff44, #00dd00);
+      color: white;
+      box-shadow: 0 0 40px rgba(68, 255, 68, 0.5);
+    }
+
+    .result-badge.wrong {
+      background: linear-gradient(135deg, #ff4444, #ff0000);
+      color: white;
+      box-shadow: 0 0 40px rgba(255, 68, 68, 0.5);
+    }
+
+    /* ── PHASE: GAME OVER ── */
+    #phase-gameover {
+      gap: 2rem;
+      width: 100%;
+    }
+
+    #phase-gameover h1 {
+      font-size: 3.5rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--gold), var(--accent));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .leaderboard {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      width: 100%;
+      max-width: 1000px;
+    }
+
+    .score-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 1.5rem 2rem;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: var(--radius-lg);
+      animation: slideIn 0.3s ease-out both;
+      font-size: 1.6rem;
+      font-weight: 700;
+      gap: 2rem;
+    }
+
+    .score-row.winner {
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 137, 6, 0.15));
+      border-color: var(--gold);
+      box-shadow: 0 0 30px rgba(255, 215, 0, 0.3);
+      border-width: 2px;
+    }
+
+    .score-row .rank {
+      font-size: 1.8rem;
+      font-weight: 900;
+      color: var(--gold);
+      min-width: 60px;
+      text-align: center;
+    }
+
+    .score-row .name {
+      flex: 1;
+      margin-left: 1rem;
+      text-align: left;
+    }
+
+    .score-row .points {
+      font-size: 2rem;
+      font-weight: 900;
+      color: var(--neon);
+      min-width: 120px;
+      text-align: right;
+    }
+
+    /* ── UTILITY ── */
+    .hidden {
+      display: none;
+    }
+
+    /* ── RESPONSIVENESS ── */
+    @media (max-width: 1024px) {
+      body {
+        padding: 1.5rem;
+      }
+
+      .display-container {
+        gap: 1.5rem;
+      }
+
+      #phase-setup h1 {
+        font-size: 2.8rem;
+      }
+
+      #phase-setup .big-emoji {
+        font-size: 4rem;
+      }
+
+      #phase-clues h1 {
+        font-size: 2.8rem;
+      }
+
+      .clues-grid {
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1rem;
+      }
+
+      .clue-card {
+        padding: 1.5rem;
+        min-height: 120px;
+      }
+
+      .clue-card .text {
+        font-size: 1.4rem;
+      }
+
+      #phase-guess h1 {
+        font-size: 2.8rem;
+      }
+
+      #phase-guess .big-emoji {
+        font-size: 3.5rem;
+      }
+
+      .reveal-word {
+        font-size: 3rem;
+      }
+
+      .result-badge {
+        padding: 0.75rem 1.5rem;
+        font-size: 1.4rem;
+      }
+
+      #phase-gameover h1 {
+        font-size: 2.8rem;
+      }
+
+      .score-row {
+        padding: 1rem 1.5rem;
+        font-size: 1.3rem;
+      }
+
+      .score-row .rank {
+        font-size: 1.4rem;
+      }
+
+      .score-row .points {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- SETUP PHASE -->
+  <div id="phase-setup" class="display-container">
+    <div class="display-header">
+      <div class="round-indicator" id="setup-round">Round 1 / 10</div>
+      <div class="timer-display" id="setup-timer">5</div>
+    </div>
+    <div class="big-emoji">🕵️</div>
+    <h1>Game Starting...</h1>
+    <p>Get ready to find the spy!</p>
+  </div>
+
+  <!-- CLUES PHASE -->
+  <div id="phase-clues" class="display-container">
+    <div class="display-header">
+      <div class="round-indicator" id="clues-round">Round 1 / 10</div>
+      <div class="timer-display" id="clues-timer">30</div>
+    </div>
+    <h1>Give Your Clues!</h1>
+    <div class="subtitle" id="clues-subtitle">Clues appearing as players submit...</div>
+    <div class="clues-grid" id="clues-grid"></div>
+  </div>
+
+  <!-- GUESS PHASE -->
+  <div id="phase-guess" class="display-container">
+    <div class="display-header">
+      <div class="round-indicator" id="guess-round">Round 1 / 10</div>
+      <div class="timer-display" id="guess-timer">20</div>
+    </div>
+    <h1>Spy is Guessing...</h1>
+    <div class="big-emoji">🤔</div>
+    <p>Will they guess the word?</p>
+  </div>
+
+  <!-- REVEAL PHASE -->
+  <div id="phase-reveal" class="display-container">
+    <div class="display-header">
+      <div class="round-indicator" id="reveal-round">Round 1 / 10</div>
+      <div class="timer-display" id="reveal-timer">5</div>
+    </div>
+    <h1>The Word Was...</h1>
+    <div class="reveal-word" id="reveal-word">WORD</div>
+    <div class="reveal-guess" id="reveal-guess"></div>
+    <div id="reveal-result"></div>
+  </div>
+
+  <!-- GAME OVER PHASE -->
+  <div id="phase-gameover" class="display-container">
+    <h1>🏆 Final Scores</h1>
+    <div class="leaderboard" id="leaderboard"></div>
+  </div>
+
+  <script src="/shared/utils.js"></script>
+  <script>
+    // Display controller for TV view
+    // Receives updates from server and displays them without any input
+
+    class SpyDisplay {
+      constructor() {
+        this.roomCode = this.extractRoomCode();
+        this.ws = null;
+        this.currentPhase = 'setup';
+        this.round = 1;
+        this.totalRounds = 10;
+        this.clues = [];
+        this.timerIntervals = {};
+      }
+
+      extractRoomCode() {
+        const match = window.location.pathname.match(/\/group\/([A-Z0-9]+)/);
+        return match ? match[1] : null;
+      }
+
+      connect() {
+        if (!this.roomCode) {
+          console.error('Invalid room code');
+          return;
+        }
+
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws?room=${this.roomCode}&role=display`;
+
+        this.ws = new WebSocket(wsUrl);
+        this.ws.onopen = () => console.log('Display connected');
+        this.ws.onmessage = (event) => this.handleMessage(JSON.parse(event.data));
+        this.ws.onerror = (error) => console.error('WebSocket error:', error);
+        this.ws.onclose = () => {
+          console.log('Display disconnected, reconnecting...');
+          setTimeout(() => this.connect(), 3000);
+        };
+      }
+
+      handleMessage(msg) {
+        console.log('Display received:', msg.type);
+
+        switch (msg.type) {
+          case 'START_MINI_GAME':
+            this.round = msg.round || 1;
+            this.totalRounds = msg.totalRounds || 10;
+            this.clues = [];
+            this.showPhase('setup');
+            this.startPhaseTimer('setup', msg.phaseDuration || 5);
+            break;
+
+          case 'CLUES_PHASE_STARTED':
+            this.clues = [];
+            this.showPhase('clues');
+            this.startPhaseTimer('clues', msg.phaseDuration || 30);
+            break;
+
+          case 'CLUE_RECEIVED':
+            this.addClueToGrid(msg.author, msg.clue);
+            break;
+
+          case 'GUESS_PHASE_STARTED':
+            this.showPhase('guess');
+            this.startPhaseTimer('guess', msg.phaseDuration || 20);
+            break;
+
+          case 'REVEAL_PHASE_STARTED':
+            this.showPhase('reveal');
+            this.displayReveal(msg.word, msg.spyGuess, msg.isCorrect);
+            this.startPhaseTimer('reveal', msg.phaseDuration || 5);
+            break;
+
+          case 'GAME_OVER':
+            this.showPhase('gameover');
+            this.displayFinalScores(msg.scores);
+            break;
+
+          case 'LOBBY_UPDATE':
+          case 'PLAYER_REMOVED':
+          case 'RETURN_TO_LOBBY':
+            // Display doesn't care about lobby updates, just wait for next game
+            break;
+        }
+      }
+
+      showPhase(phase) {
+        document.querySelectorAll('.display-container').forEach(el => {
+          el.classList.remove('active');
+        });
+        const element = document.getElementById(`phase-${phase}`);
+        if (element) {
+          element.classList.add('active');
+        }
+        this.currentPhase = phase;
+        this.updateRoundIndicators();
+      }
+
+      updateRoundIndicators() {
+        const roundText = `Round ${this.round} / ${this.totalRounds}`;
+        document.querySelectorAll(`#${this.currentPhase}-round`).forEach(el => {
+          el.textContent = roundText;
+        });
+      }
+
+      startPhaseTimer(phase, duration) {
+        this.clearPhaseTimer(phase);
+        let remaining = duration;
+        const timerEl = document.getElementById(`${phase}-timer`);
+
+        if (!timerEl) return;
+
+        timerEl.textContent = remaining;
+        timerEl.classList.remove('warning');
+
+        this.timerIntervals[phase] = setInterval(() => {
+          remaining--;
+          timerEl.textContent = remaining;
+
+          if (remaining <= 5) {
+            timerEl.classList.add('warning');
+          }
+
+          if (remaining <= 0) {
+            this.clearPhaseTimer(phase);
+          }
+        }, 1000);
+      }
+
+      clearPhaseTimer(phase) {
+        if (this.timerIntervals[phase]) {
+          clearInterval(this.timerIntervals[phase]);
+          delete this.timerIntervals[phase];
+        }
+      }
+
+      addClueToGrid(author, clue) {
+        this.clues.push({ author, clue });
+        const grid = document.getElementById('clues-grid');
+        if (!grid) return;
+
+        const card = document.createElement('div');
+        card.className = 'clue-card';
+        card.innerHTML = `
+          <div class="author">${author}</div>
+          <div class="text">${clue}</div>
+        `;
+        grid.appendChild(card);
+      }
+
+      displayReveal(word, spyGuess, isCorrect) {
+        const wordEl = document.getElementById('reveal-word');
+        const guessEl = document.getElementById('reveal-guess');
+        const resultEl = document.getElementById('reveal-result');
+
+        if (wordEl) wordEl.textContent = word.toUpperCase();
+        if (guessEl) {
+          guessEl.textContent = spyGuess ? `Spy guessed: ${spyGuess}` : 'Spy made no guess';
+        }
+
+        if (resultEl) {
+          const badge = document.createElement('div');
+          badge.className = `result-badge ${isCorrect ? 'correct' : 'wrong'}`;
+          badge.textContent = isCorrect ? '✓ CORRECT!' : '✗ WRONG!';
+          resultEl.innerHTML = '';
+          resultEl.appendChild(badge);
+        }
+      }
+
+      displayFinalScores(scores) {
+        const leaderboard = document.getElementById('leaderboard');
+        if (!leaderboard) return;
+
+        leaderboard.innerHTML = '';
+
+        const sorted = scores
+          .sort((a, b) => b.points - a.points)
+          .slice(0, 10);
+
+        sorted.forEach((player, index) => {
+          const row = document.createElement('div');
+          row.className = 'score-row' + (index === 0 ? ' winner' : '');
+          row.innerHTML = `
+            <div class="rank">#${index + 1}</div>
+            <div class="name">${player.name}</div>
+            <div class="points">${player.points} pts</div>
+          `;
+          leaderboard.appendChild(row);
+        });
+      }
+    }
+
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', () => {
+      const display = new SpyDisplay();
+      display.connect();
+    });
+  </script>
+</body>
+</html>
