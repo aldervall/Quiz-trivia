@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Game Night — Spy</title>
+  <link rel="stylesheet" href="/shared/theme.css">
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      gap: 1rem;
+      min-height: 100vh;
+    }
+
+    .container {
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      width: 100%;
+      max-width: 500px;
+      gap: 1rem;
+    }
+
+    .container.active {
+      display: flex;
+      animation: slideIn 0.3s ease-out both;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* ── ROUND INDICATOR ── */
+    .round-indicator {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    /* ── TIMER ── */
+    .timer-display {
+      font-size: 3rem;
+      font-weight: 900;
+      color: var(--neon);
+      text-align: center;
+      min-width: 100px;
+    }
+
+    .timer-display.warning {
+      color: #ff6b6b;
+      animation: pulse 0.6s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+
+    /* ── STATUS BADGES ── */
+    .status-badge {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      border-radius: var(--radius-pill);
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white;
+      font-weight: 900;
+      font-size: 0.9rem;
+      text-align: center;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .status-badge.spy-badge {
+      background: linear-gradient(135deg, #ff4444, #ff0000);
+      box-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
+      animation: pulse 1s ease-in-out infinite;
+    }
+
+    /* ── PHASE: SETUP ── */
+    #phase-setup {
+      gap: 2rem;
+      text-align: center;
+    }
+
+    #phase-setup .big-emoji {
+      font-size: 4rem;
+      animation: float 3s ease-in-out infinite;
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-12px); }
+    }
+
+    #phase-setup h2 {
+      font-size: 1.5rem;
+      font-weight: 800;
+    }
+
+    #phase-setup p {
+      color: var(--text-dim);
+    }
+
+    /* ── PHASE: CLUES (NON-SPY) ── */
+    #phase-clues-nonspy {
+      gap: 1rem;
+      width: 100%;
+    }
+
+    #phase-clues-nonspy h2 {
+      font-size: 1.3rem;
+      font-weight: 800;
+    }
+
+    .secret-word-box {
+      background: linear-gradient(135deg, rgba(255, 137, 6, 0.2), rgba(255, 200, 0, 0.1));
+      border: 2px solid var(--accent);
+      border-radius: var(--radius-lg);
+      padding: 1rem;
+      text-align: center;
+      box-shadow: 0 0 15px rgba(255, 137, 6, 0.2);
+    }
+
+    .secret-word-box .label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .secret-word-box .word {
+      font-size: 2rem;
+      font-weight: 900;
+      color: var(--accent);
+    }
+
+    /* ── CLUE INPUT & SEND ── */
+    .clue-input-group {
+      display: flex;
+      gap: 0.5rem;
+      width: 100%;
+    }
+
+    #clue-input {
+      flex: 1;
+      padding: 0.75rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text);
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    #clue-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    #clue-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      background: rgba(255, 255, 255, 0.06);
+      box-shadow: 0 0 10px rgba(255, 137, 6, 0.2);
+    }
+
+    .send-btn {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: white;
+      font-weight: 900;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 0 15px var(--accent-glow);
+      white-space: nowrap;
+    }
+
+    .send-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 25px var(--accent-glow);
+    }
+
+    .send-btn:active {
+      transform: translateY(0);
+    }
+
+    .send-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ── CLUES LIST ── */
+    .clues-list-label {
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 0.5rem;
+    }
+
+    #clues-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      width: 100%;
+      max-height: 200px;
+      overflow-y: auto;
+    }
+
+    .clue-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: var(--radius-md);
+      animation: slideIn 0.3s ease-out both;
+    }
+
+    .clue-item .author {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      min-width: 60px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .clue-item .text {
+      flex: 1;
+      color: var(--text);
+      font-weight: 600;
+      word-break: break-word;
+    }
+
+    /* ── PHASE: CLUES (SPY) ── */
+    #phase-clues-spy {
+      gap: 1rem;
+      width: 100%;
+      text-align: center;
+    }
+
+    #phase-clues-spy h2 {
+      font-size: 1.3rem;
+      font-weight: 800;
+    }
+
+    /* ── PHASE: GUESS (SPY) ── */
+    #phase-guess-spy {
+      gap: 1rem;
+      width: 100%;
+    }
+
+    #phase-guess-spy h2 {
+      font-size: 1.3rem;
+      font-weight: 800;
+    }
+
+    .guess-input-group {
+      display: flex;
+      gap: 0.5rem;
+      width: 100%;
+    }
+
+    #guess-input {
+      flex: 1;
+      padding: 0.75rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.03);
+      color: var(--text);
+      font-size: 1rem;
+      font-weight: 600;
+    }
+
+    #guess-input::placeholder {
+      color: var(--text-muted);
+    }
+
+    #guess-input:focus {
+      outline: none;
+      border-color: var(--accent);
+      background: rgba(255, 255, 255, 0.06);
+      box-shadow: 0 0 10px rgba(255, 137, 6, 0.2);
+    }
+
+    /* ── PHASE: GUESS (NON-SPY) ── */
+    #phase-guess-nonspy {
+      gap: 1rem;
+      text-align: center;
+      width: 100%;
+    }
+
+    #phase-guess-nonspy h2 {
+      font-size: 1.3rem;
+      font-weight: 800;
+    }
+
+    /* ── PHASE: REVEAL ── */
+    #phase-reveal {
+      gap: 1.5rem;
+      text-align: center;
+      width: 100%;
+    }
+
+    #phase-reveal h2 {
+      font-size: 1.3rem;
+      font-weight: 800;
+    }
+
+    .reveal-word {
+      font-size: 2rem;
+      font-weight: 900;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .result-badge {
+      padding: 0.75rem 1.5rem;
+      border-radius: var(--radius-pill);
+      font-weight: 900;
+      font-size: 1.1rem;
+    }
+
+    .result-badge.correct {
+      background: linear-gradient(135deg, #44ff44, #00dd00);
+      color: white;
+      box-shadow: 0 0 20px rgba(68, 255, 68, 0.4);
+    }
+
+    .result-badge.wrong {
+      background: linear-gradient(135deg, #ff4444, #ff0000);
+      color: white;
+      box-shadow: 0 0 20px rgba(255, 68, 68, 0.4);
+    }
+
+    /* ── PHASE: GAME OVER ── */
+    #phase-gameover {
+      gap: 1rem;
+      width: 100%;
+    }
+
+    #phase-gameover h2 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    #final-scores {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      width: 100%;
+    }
+
+    .score-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1rem;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: var(--radius-md);
+      animation: slideIn 0.3s ease-out both;
+    }
+
+    .score-row.winner {
+      background: linear-gradient(135deg, rgba(255, 215, 0, 0.15), rgba(255, 137, 6, 0.15));
+      border-color: var(--gold);
+      box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+    }
+
+    .score-row .rank {
+      font-size: 0.9rem;
+      font-weight: 900;
+      color: var(--gold);
+      min-width: 30px;
+      text-align: center;
+    }
+
+    .score-row .name {
+      flex: 1;
+      margin-left: 0.75rem;
+      font-weight: 700;
+    }
+
+    .score-row .points {
+      font-size: 1.2rem;
+      font-weight: 900;
+      color: var(--neon);
+    }
+
+    /* ── UTILITY ── */
+    .hidden {
+      display: none;
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
+  </style>
+</head>
+<body>
+  <!-- SETUP PHASE -->
+  <div id="phase-setup" class="container">
+    <div class="round-indicator" id="setup-round">Round 1 / 10</div>
+    <div class="big-emoji">🕵️</div>
+    <h2>Game Starting...</h2>
+    <p>Get ready to find the spy!</p>
+    <div class="timer-display" id="setup-timer">5</div>
+  </div>
+
+  <!-- CLUES PHASE - NON-SPY -->
+  <div id="phase-clues-nonspy" class="container">
+    <div class="round-indicator" id="clues-nonspy-round">Round 1 / 10</div>
+    <h2>Give Your Clue</h2>
+    <div class="secret-word-box">
+      <div class="label">Secret Word</div>
+      <div class="word" id="secret-word">WORD</div>
+    </div>
+    <div class="timer-display" id="clues-nonspy-timer">30</div>
+    <div class="clue-input-group">
+      <input
+        type="text"
+        id="clue-input"
+        class="clue-input"
+        placeholder="One-word clue (max 20 chars)"
+        maxlength="20"
+      />
+      <button id="send-clue-btn" class="send-btn">Send</button>
+    </div>
+    <div class="clues-list-label">Clues Received</div>
+    <div id="clues-list"></div>
+  </div>
+
+  <!-- CLUES PHASE - SPY -->
+  <div id="phase-clues-spy" class="container">
+    <div class="round-indicator" id="clues-spy-round">Round 1 / 10</div>
+    <div class="status-badge spy-badge">🕵️ YOU ARE THE SPY</div>
+    <h2>Listen to the Clues</h2>
+    <div class="timer-display" id="clues-spy-timer">30</div>
+    <div class="clues-list-label">Clues from Others</div>
+    <div id="clues-list-spy"></div>
+  </div>
+
+  <!-- GUESS PHASE - SPY -->
+  <div id="phase-guess-spy" class="container">
+    <div class="round-indicator" id="guess-spy-round">Round 1 / 10</div>
+    <div class="status-badge spy-badge">🎯 YOUR TURN TO GUESS</div>
+    <h2>What's the Word?</h2>
+    <div class="timer-display" id="guess-spy-timer">20</div>
+    <div class="guess-input-group">
+      <input
+        type="text"
+        id="guess-input"
+        class="guess-input"
+        placeholder="Your guess (max 30 chars)"
+        maxlength="30"
+      />
+      <button id="submit-guess-btn" class="send-btn">Guess</button>
+    </div>
+  </div>
+
+  <!-- GUESS PHASE - NON-SPY -->
+  <div id="phase-guess-nonspy" class="container">
+    <div class="round-indicator" id="guess-nonspy-round">Round 1 / 10</div>
+    <h2>Spy is Guessing...</h2>
+    <div class="big-emoji">🤔</div>
+    <div class="timer-display" id="guess-nonspy-timer">20</div>
+    <p>Wait for the spy to make their guess.</p>
+  </div>
+
+  <!-- REVEAL PHASE -->
+  <div id="phase-reveal" class="container">
+    <div class="round-indicator" id="reveal-round">Round 1 / 10</div>
+    <h2>Reveal</h2>
+    <div class="reveal-word" id="reveal-word">WORD</div>
+    <div id="reveal-result"></div>
+    <div class="timer-display" id="reveal-timer">5</div>
+  </div>
+
+  <!-- GAME OVER PHASE -->
+  <div id="phase-gameover" class="container">
+    <h2>Final Scores</h2>
+    <div id="final-scores"></div>
+  </div>
+
+  <script src="/shared/utils.js"></script>
+  <script src="spy-game.js"></script>
+</body>
+</html>
