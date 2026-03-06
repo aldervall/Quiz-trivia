@@ -18,23 +18,39 @@ const handlers = {
 
     const success = game.receiveClue(username, msg.clue);
     if (success) {
-      // Broadcast clue to all players and displays
-      const state = game.getState();
-      const broadcast = {
+      // Send per-player state to each player (hides word from spy)
+      for (const socket of room.playerSockets) {
+        const playerName = room.wsToUsername.get(socket);
+        if (!playerName) continue;
+        const state = game.getState(playerName);
+        const broadcast = {
+          type: 'CLUE_RECEIVED',
+          username,
+          clue: msg.clue,
+          gameState: state
+        };
+        try {
+          socket.send(JSON.stringify(broadcast));
+        } catch (e) {
+          // Socket closed
+        }
+      }
+
+      // Displays see a display-safe state (word visible via known non-spy)
+      const displayState = game.getState(null, { display: true });
+      const displayBroadcast = {
         type: 'CLUE_RECEIVED',
         username,
         clue: msg.clue,
-        gameState: state
+        gameState: displayState
       };
-
-      // Send to all players
-      for (const socket of room.playerSockets) {
-        socket.send(JSON.stringify(broadcast));
-      }
-
-      // Send to all displays
+      const displayStr = JSON.stringify(displayBroadcast);
       for (const socket of room.displaySockets) {
-        socket.send(JSON.stringify(broadcast));
+        try {
+          socket.send(displayStr);
+        } catch (e) {
+          // Socket closed
+        }
       }
     }
   },
@@ -48,22 +64,37 @@ const handlers = {
 
     const success = game.receiveGuess(username, msg.guess);
     if (success) {
-      // Broadcast guess to all players and displays
-      const state = game.getState();
-      const broadcast = {
-        type: 'GUESS_RECEIVED',
-        username,
-        gameState: state
-      };
-
-      // Send to all players
+      // Send per-player state to each player (hides word from spy)
       for (const socket of room.playerSockets) {
-        socket.send(JSON.stringify(broadcast));
+        const playerName = room.wsToUsername.get(socket);
+        if (!playerName) continue;
+        const state = game.getState(playerName);
+        const broadcast = {
+          type: 'GUESS_RECEIVED',
+          username,
+          gameState: state
+        };
+        try {
+          socket.send(JSON.stringify(broadcast));
+        } catch (e) {
+          // Socket closed
+        }
       }
 
-      // Send to all displays
+      // Displays see a display-safe state
+      const displayState = game.getState(null, { display: true });
+      const displayBroadcast = {
+        type: 'GUESS_RECEIVED',
+        username,
+        gameState: displayState
+      };
+      const displayStr = JSON.stringify(displayBroadcast);
       for (const socket of room.displaySockets) {
-        socket.send(JSON.stringify(broadcast));
+        try {
+          socket.send(displayStr);
+        } catch (e) {
+          // Socket closed
+        }
       }
     }
   }
@@ -79,7 +110,10 @@ const routes = {
       return;
     }
 
-    res.json(game.getState());
+    // API endpoint: strip sensitive fields (word + spy identity)
+    const state = game.getState(null);
+    const { word, spy, ...publicState } = state;
+    res.json(publicState);
   }
 };
 
@@ -101,28 +135,32 @@ function onStartGame(room) {
 
     game.update();
 
-    // Broadcast current state to all players and displays
-    const state = game.getState();
-    const message = {
-      type: 'GAME_STATE',
-      gameState: state
-    };
-
-    const messageStr = JSON.stringify(message);
-
-    // Send to all players
+    // Send per-player state to each player (hides word from spy)
     for (const socket of room.playerSockets) {
+      const username = room.wsToUsername.get(socket);
+      if (!username) continue;
+      const state = game.getState(username);
+      const message = {
+        type: 'GAME_STATE',
+        gameState: state
+      };
       try {
-        socket.send(messageStr);
+        socket.send(JSON.stringify(message));
       } catch (e) {
         // Socket closed
       }
     }
 
-    // Send to all displays
+    // Displays see a display-safe state (word visible via known non-spy)
+    const displayState = game.getState(null, { display: true });
+    const displayMessage = {
+      type: 'GAME_STATE',
+      gameState: displayState
+    };
+    const displayStr = JSON.stringify(displayMessage);
     for (const socket of room.displaySockets) {
       try {
-        socket.send(messageStr);
+        socket.send(displayStr);
       } catch (e) {
         // Socket closed
       }

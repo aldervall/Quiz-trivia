@@ -1,3 +1,5 @@
+'use strict';
+
 const fs = require('fs');
 const path = require('path');
 
@@ -190,26 +192,34 @@ class SpyGame {
     return true;
   }
 
-  getState() {
+  getState(forUsername, { display = false } = {}) {
     const round = this.getCurrentRound();
     const now = Date.now();
     const elapsed = Math.max(0, now - round.phaseStartTime);
     const phaseDuration = PHASE_DURATIONS[round.phase];
     const timeRemaining = Math.max(0, phaseDuration - elapsed);
 
+    // Default-safe: hide word from spy, unknown callers, and unauthenticated requests.
+    // Displays get the word (they show it to the room). Known non-spy players get it.
+    const isRevealPhase = round.phase === PHASES.REVEAL || round.phase === PHASES.SCORE;
+    const isKnownPlayer = forUsername && this.players.has(forUsername);
+    const isSpy = isKnownPlayer && forUsername === round.spy;
+    const showWord = display || (isKnownPlayer && (!isSpy || isRevealPhase));
+
     return {
       roundNumber: round.number,
       phase: round.phase,
       timeRemaining,
-      spy: round.spy,
-      word: round.word, // Only sent to non-spies on client side
+      spy: isRevealPhase ? round.spy : null,
+      word: showWord ? round.word : null,
       clues: round.clues,
-      spyGuess: round.phase === PHASES.REVEAL || round.phase === PHASES.SCORE ? round.spyGuess : null,
-      spyGuessCorrect: round.phase === PHASES.REVEAL || round.phase === PHASES.SCORE ? round.spyGuessCorrect : null,
+      spyGuess: isRevealPhase ? round.spyGuess : null,
+      spyGuessCorrect: isRevealPhase ? round.spyGuessCorrect : null,
       scores: round.scores,
       gameRunning: this.gameRunning,
       currentRound: this.currentRoundIndex + 1,
       maxRounds: this.maxRounds,
+      isSpy: isSpy,
       playerScores: Array.from(this.players.entries()).map(([username, player]) => ({
         username,
         score: player.score
