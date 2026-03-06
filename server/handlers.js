@@ -213,7 +213,7 @@ function handleMessage(ws, role, msg, room) {
       const username = room.wsToUsername.get(ws);
       if (!username) break;
       const gameType = msg.gameType;
-      if (!['quiz', 'shithead', 'cah'].includes(gameType)) break;
+      if (!['quiz', 'shithead', 'cah', 'spy'].includes(gameType)) break;
       room.gameSuggestions.set(username, gameType);
       broadcastLobbyUpdate(room);
       break;
@@ -407,6 +407,14 @@ function handleMessage(ws, role, msg, room) {
       const username = room.wsToUsername.get(ws);
       if (!username || !room.cahGame) break;
       room.cahGame.czarPick(username, msg.submissionId);
+      break;
+    }
+
+    // ── Spy game messages ─────────────────────────────────────────────────
+    case 'SEND_CLUE':
+    case 'SEND_GUESS': {
+      const handler = spyGame.handlers[type];
+      if (handler) handler(ws, msg, room);
       break;
     }
   }
