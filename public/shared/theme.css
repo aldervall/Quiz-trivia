@@ -321,3 +321,169 @@ body {
   margin-right: 1rem;
   display: inline-block;
 }
+
+/* Player Chip */
+.player-chip {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 1rem;
+  margin: 0.25rem;
+  transition: transform 0.2s;
+}
+
+.player-chip.is-admin {
+  background: rgba(255, 215, 0, 0.2);
+  border: 2px solid gold;
+}
+
+.player-chip.is-current {
+  transform: scale(1.05);
+  box-shadow: 0 0 20px rgba(102, 126, 234, 0.5);
+}
+
+.chip-avatar {
+  font-size: 1.5rem;
+  margin-right: 0.5rem;
+}
+
+.chip-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.chip-name {
+  font-weight: bold;
+  font-size: 0.9rem;
+}
+
+.chip-score {
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.chip-crown {
+  margin-left: 0.5rem;
+  font-size: 1rem;
+}
+
+/* Game Button */
+.game-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: bold;
+}
+
+.game-btn-primary {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+}
+
+.game-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+}
+
+.game-btn-secondary {
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 2px solid white;
+}
+
+.game-btn-secondary:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Phase Display */
+.phase-display {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: rgba(102, 126, 234, 0.1);
+  border-radius: 0.5rem;
+  margin: 1rem 0;
+}
+
+.phase-name {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.phase-timer {
+  font-size: 1.5rem;
+  color: #ff6b6b;
+  font-weight: bold;
+}
+
+/* Scoreboard */
+.scoreboard {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin: 1rem 0;
+}
+
+.scoreboard-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.scoreboard-row:last-child {
+  border-bottom: none;
+}
+
+.rank {
+  font-weight: bold;
+  min-width: 3rem;
+  color: #ffd700;
+}
+
+.player-name {
+  flex: 1;
+  margin: 0 1rem;
+}
+
+.player-score {
+  font-weight: bold;
+  color: #ffd700;
+}
+
+/* Power-up Display */
+.powerup-display {
+  display: flex;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.powerup-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.5rem;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 0.5rem;
+  opacity: 1;
+  transition: opacity 0.2s;
+}
+
+.powerup-item.used {
+  opacity: 0.3;
+}
+
+.powerup-icon {
+  font-size: 1.5rem;
+}
+
+.powerup-label {
+  font-size: 0.7rem;
+  margin-top: 0.25rem;
+}
