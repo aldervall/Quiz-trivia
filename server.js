@@ -21,7 +21,6 @@ const Persistence = require('./server/persistence');
 
 // ─── Load game modules ──────────────────────────────────────────────────────
 const spyGame = require('./games/spy/server');
-const lyricsGame = require('./games/lyrics/server');
 
 const PORT = process.env.PORT || 3000;
 
