@@ -357,6 +357,31 @@ wss.on('connection', (ws, req) => {
   ws.close(4000, 'Invalid role');
 });
 
+// ─── Game Tick Loop (pull-based state broadcasting) ────────────────────────────
+// For QuizController and other pull-based game controllers:
+// - Call game.tick() to update internal state
+// - Call game.getState() to pull complete state
+// - Broadcast state to all players and displays
+setInterval(() => {
+  for (const [code, room] of rooms) {
+    if (room.game && room.activeMiniGame === 'quiz') {
+      // Update game state
+      room.game.tick();
+
+      // Pull state and broadcast to all connected clients
+      const gameState = room.game.getState();
+      const stateMsg = JSON.stringify({ type: 'GAME_STATE', ...gameState });
+
+      for (const ws of room.playerSockets) {
+        if (ws.readyState === 1) ws.send(stateMsg);
+      }
+      for (const ws of room.displaySockets) {
+        if (ws.readyState === 1) ws.send(stateMsg);
+      }
+    }
+  }
+}, 100);  // Tick every ~100ms
+
 // ─── Start server ─────────────────────────────────────────────────────────────
 
 server.listen(PORT, '0.0.0.0', () => {

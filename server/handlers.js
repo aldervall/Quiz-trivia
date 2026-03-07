@@ -1,6 +1,6 @@
 'use strict';
 
-const { Game } = require('../game');
+const QuizController = require('./QuizController');
 const { ShitheadGame } = require('../shithead');
 const { CAHGame } = require('../cah');
 const spyGame = require('../games/spy/server');
@@ -13,7 +13,7 @@ const { broadcastAll, broadcastToDisplays, sendTo, broadcastLobbyUpdate, broadca
 function maybeCleanupRoom(room) {
   const totalSockets = room.playerSockets.size + room.displaySockets.size;
   const idle = room.activeMiniGame === 'lobby' ||
-    (room.game && room.game.state === 'GAME_OVER') ||
+    (room.game && room.game.phase === 'GAME_OVER') ||
     (room.shitheadGame && room.shitheadGame.state === 'GAME_OVER') ||
     (room.cahGame && room.cahGame.state === 'GAME_OVER') ||
     (room.lyricsGame && room.lyricsGame.state === 'GAME_OVER');
@@ -72,15 +72,15 @@ function handlePlayerDisconnect(ws, room) {
       }
     }
 
-    if (room.game) room.game.removePlayer(ws);
+    if (room.game) room.game.removePlayer(username);
     if (room.shitheadGame) room.shitheadGame.removePlayer(ws);
     if (room.cahGame) room.cahGame.removePlayer(ws);
     if (room.lyricsGame) room.lyricsGame.removePlayer(ws);
     broadcastLobbyUpdate(room);
     broadcastVoteUpdate(room);
   } else {
-    // In game: null ws, keep score (existing Game behaviour)
-    if (room.game) room.game.removePlayer(ws);
+    // In game: keep score, remove from game
+    if (room.game) room.game.removePlayer(username);
     if (room.shitheadGame) room.shitheadGame.removePlayer(ws);
     if (room.cahGame) room.cahGame.removePlayer(ws);
     if (room.lyricsGame) room.lyricsGame.removePlayer(ws);
@@ -107,16 +107,18 @@ function handleMessage(ws, role, msg, room) {
         const categories = Array.isArray(msg.categories) && msg.categories.length > 0 ? msg.categories : [9];
         const questionCount = Number.isInteger(msg.questionCount) && msg.questionCount > 0 ? Math.min(msg.questionCount, 50) : 20;
         const gameDifficulty = ['easy', 'medium', 'hard'].includes(msg.gameDifficulty) ? msg.gameDifficulty : 'easy';
-        if (!room.game) room.game = new Game(room._broadcast);
+        if (!room.game) room.game = new QuizController(categories, gameDifficulty, questionCount);
         room.activeMiniGame = 'quiz';
-        room.game.startGame(categories, questionCount, gameDifficulty, room.language).catch(console.error);
+        room.game.start();
         break;
       }
       case 'SKIP':
-        if (room.game) room.game.skipReveal();
+        // TODO: implement skipReveal for QuizController
+        // if (room.game) room.game.skipReveal();
         break;
       case 'RESTART':
-        if (room.game) room.game.restart();
+        // TODO: implement restart for QuizController
+        // if (room.game) room.game.restart();
         if (room.shitheadGame) { room.shitheadGame = null; }
         if (room.cahGame) { room.cahGame = null; }
       if (room.lyricsGame) { room.lyricsGame = null; }
@@ -127,10 +129,11 @@ function handleMessage(ws, role, msg, room) {
         broadcastLobbyUpdate(room);
         break;
       case 'CONTINUE_GAME': {
-        const categories = Array.isArray(msg.categories) && msg.categories.length > 0 ? msg.categories : [9];
-        const questionCount = Number.isInteger(msg.questionCount) && msg.questionCount > 0 ? Math.min(msg.questionCount, 50) : 20;
-        const gameDifficulty = ['easy', 'medium', 'hard'].includes(msg.gameDifficulty) ? msg.gameDifficulty : 'easy';
-        if (room.game) room.game.continueGame(categories, questionCount, gameDifficulty).catch(console.error);
+        // TODO: implement continueGame for QuizController
+        // const categories = Array.isArray(msg.categories) && msg.categories.length > 0 ? msg.categories : [9];
+        // const questionCount = Number.isInteger(msg.questionCount) && msg.questionCount > 0 ? Math.min(msg.questionCount, 50) : 20;
+        // const gameDifficulty = ['easy', 'medium', 'hard'].includes(msg.gameDifficulty) ? msg.gameDifficulty : 'easy';
+        // if (room.game) room.game.continueGame(categories, questionCount, gameDifficulty).catch(console.error);
         break;
       }
       case 'SET_LANGUAGE':
@@ -173,19 +176,22 @@ function handleMessage(ws, role, msg, room) {
       room.players.set(username, { ws, isReady: false, avatar });
       room.wsToUsername.set(ws, username);
 
-      // Lazy-create game instance
+      // Lazy-create game instance with default quiz parameters
       if (!room.game) {
-        room.game = new Game(room._broadcast);
+        room.game = new QuizController([], 'medium', 10);
       }
-      const result = room.game.addPlayer(ws, username);
+      // Add player to game with default game state
+      room.game.addPlayer(username, {
+        score: 0,
+        streak: 0,
+        powerups: { doublePoints: 1, fiftyFifty: 1, timeFreeze: 1 },
+        activePowerup: null,
+        lastAnswerTime: null,
+      });
 
       const isAdmin = username === room.adminUsername;
-      const gameRunning = !!(room.game && room.game.state !== 'LOBBY');
+      const gameRunning = !!(room.game && room.game.phase !== 'LOBBY');
       sendTo(ws, { type: 'JOIN_OK', username, isAdmin, roomCode: room.code, avatar, lang: room.language, gameRunning });
-
-      if (!result.ok) {
-        sendTo(ws, { type: 'ERROR', code: result.code, message: result.message });
-      }
 
       // Reconnect to in-progress shithead game (must be after JOIN_OK so that
       // SHITHEAD_GAME_STATE arrives after JOIN_OK and is not overwritten by it)
@@ -260,8 +266,19 @@ function handleMessage(ws, role, msg, room) {
       broadcastAll(room, { type: 'MINI_GAME_STARTING', gameType, url: `/group/${room.code}/${gameType}` });
 
       if (gameType === 'quiz') {
-        if (!room.game) room.game = new Game(room._broadcast);
-        room.game.startGame(categories, questionCount, gameDifficulty, room.language).catch(console.error);
+        // Create fresh quiz controller with specified parameters
+        room.game = new QuizController(categories, gameDifficulty, questionCount);
+        // Add all currently connected players to the game
+        for (const [uname, playerData] of room.players) {
+          room.game.addPlayer(uname, {
+            score: playerData.score || 0,
+            streak: 0,
+            powerups: { doublePoints: 1, fiftyFifty: 1, timeFreeze: 1 },
+            activePowerup: null,
+            lastAnswerTime: null,
+          });
+        }
+        room.game.start();
       } else if (gameType === 'shithead') {
         const deckCount = Number.isInteger(msg.deckCount) ? Math.max(1, Math.min(3, msg.deckCount)) : 1;
         room.shitheadGame = new ShitheadGame(room._broadcast);
@@ -310,7 +327,7 @@ function handleMessage(ws, role, msg, room) {
         sendTo(ws, { type: 'ERROR', code: 'NOT_ADMIN', message: 'Only admin can return to lobby.' });
         break;
       }
-      if (room.game) room.game.restart();
+      if (room.game) { room.game = null; }  // Reset game instance
       if (room.shitheadGame) { room.shitheadGame = null; }
       if (room.cahGame) { room.cahGame = null; }
       if (room.lyricsGame) { room.lyricsGame = null; }
@@ -340,38 +357,49 @@ function handleMessage(ws, role, msg, room) {
       break;
     }
 
-    case 'ANSWER':
-      if (room.game) room.game.receiveAnswer(ws, msg.questionId, msg.answerId);
+    case 'ANSWER': {
+      // QuizController uses handlePlayerAction instead
+      const username = room.wsToUsername.get(ws);
+      if (room.game && username) {
+        room.game.handlePlayerAction(username, {
+          answerIndex: msg.answerId,
+          powerup: msg.powerupType
+        });
+      }
       break;
+    }
 
     case 'LYRICS_ANSWER':
       if (room.lyricsGame) room.lyricsGame.receiveAnswer(ws, msg.answerId);
       break;
 
     case 'USE_POWERUP': {
-      if (room.game && msg.powerupType) {
-        const result = room.game.usePowerup(ws, msg.powerupType);
-        if (!result.ok && result.code) {
-          sendTo(ws, { type: 'ERROR', code: result.code, message: result.message });
-        }
-      }
+      // Powerups are handled as part of ANSWER message
+      // if (room.game && msg.powerupType) {
+      //   const result = room.game.usePowerup(ws, msg.powerupType);
+      //   if (!result.ok && result.code) {
+      //     sendTo(ws, { type: 'ERROR', code: result.code, message: result.message });
+      //   }
+      // }
       break;
     }
 
     case 'SKIP': {
       const username = room.wsToUsername.get(ws);
       if (username !== room.adminUsername) break;
-      if (room.game) room.game.skipReveal();
+      // TODO: implement skipReveal for QuizController
+      // if (room.game) room.game.skipReveal();
       break;
     }
 
     case 'CONTINUE_GAME': {
       const username = room.wsToUsername.get(ws);
       if (username !== room.adminUsername) break;
-      const categories = Array.isArray(msg.categories) && msg.categories.length > 0 ? msg.categories : [9];
-      const questionCount = Number.isInteger(msg.questionCount) && msg.questionCount > 0 ? Math.min(msg.questionCount, 50) : 20;
-      const gameDifficulty = ['easy', 'medium', 'hard'].includes(msg.gameDifficulty) ? msg.gameDifficulty : 'easy';
-      if (room.game) room.game.continueGame(categories, questionCount, gameDifficulty).catch(console.error);
+      // TODO: implement continueGame for QuizController
+      // const categories = Array.isArray(msg.categories) && msg.categories.length > 0 ? msg.categories : [9];
+      // const questionCount = Number.isInteger(msg.questionCount) && msg.questionCount > 0 ? Math.min(msg.questionCount, 50) : 20;
+      // const gameDifficulty = ['easy', 'medium', 'hard'].includes(msg.gameDifficulty) ? msg.gameDifficulty : 'easy';
+      // if (room.game) room.game.continueGame(categories, questionCount, gameDifficulty).catch(console.error);
       break;
     }
 
