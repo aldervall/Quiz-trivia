@@ -17,6 +17,7 @@ const { downloadDatabase, getState: getDbState, dbStatus } = require('./local-db
 const { rooms, generateRoomCode, createRoom, buildLobbyState } = require('./server/rooms');
 const { broadcastAll, broadcastToDisplays, sendTo, broadcastLobbyUpdate, broadcastVoteUpdate } = require('./server/broadcast');
 const { handleMessage, handlePlayerDisconnect, maybeCleanupRoom } = require('./server/handlers');
+const Persistence = require('./server/persistence');
 
 // ─── Load game modules ──────────────────────────────────────────────────────
 const spyGame = require('./games/spy/server');
@@ -201,6 +202,27 @@ app.post('/api/db/download', dbDownloadLimit, (req, res) => {
   if (dl.active) return res.json({ ok: false, message: 'Already downloading.' });
   downloadDatabase().catch(console.error);
   res.json({ ok: true, message: 'Download started.' });
+});
+
+// Stats and leaderboard endpoints
+app.get('/api/stats', (req, res) => {
+  const limit = parseInt(req.query.limit) || 10;
+  const leaderboard = Persistence.getLeaderboard(limit);
+  res.json({ leaderboard });
+});
+
+app.get('/api/stats/:username', (req, res) => {
+  const stats = Persistence.getPlayerStats(req.params.username);
+  if (!stats) {
+    return res.status(404).json({ error: 'Player not found' });
+  }
+  res.json(stats);
+});
+
+app.get('/api/history', (req, res) => {
+  const limit = parseInt(req.query.limit) || 20;
+  const games = Persistence.getRecentGames(limit);
+  res.json({ games });
 });
 
 // Register game-specific API routes
