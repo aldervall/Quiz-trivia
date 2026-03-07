@@ -103,10 +103,6 @@ class Persistence {
         .slice(-limit)
         .reverse()
         .map(line => JSON.parse(line))
-        .catch(err => {
-          console.error('Failed to parse game history:', err)
-          return []
-        })
     } catch (error) {
       console.error('Failed to load recent games:', error)
       return []
