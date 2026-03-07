@@ -1,6 +1,7 @@
 'use strict';
 
 const QuizController = require('./QuizController');
+const BotController = require('./BotController');
 const { ShitheadGame } = require('../shithead');
 const { CAHGame } = require('../cah');
 const spyGame = require('../games/spy/server');
@@ -189,6 +190,9 @@ function handleMessage(ws, role, msg, room) {
         lastAnswerTime: null,
       });
 
+      // Auto-manage bot: add bot if this is first human player
+      BotController.maybeAddBot(room);
+
       const isAdmin = username === room.adminUsername;
       const gameRunning = !!(room.game && room.game.phase !== 'LOBBY');
       sendTo(ws, { type: 'JOIN_OK', username, isAdmin, roomCode: room.code, avatar, lang: room.language, gameRunning });
@@ -224,6 +228,13 @@ function handleMessage(ws, role, msg, room) {
       } else {
         room.readyPlayers.delete(username);
       }
+
+      // Auto-manage bot: remove bot if now 2+ humans
+      const botWasRemoved = BotController.maybeRemoveBot(room);
+      if (botWasRemoved) {
+        broadcastAll(room, { type: 'PLAYER_REMOVED', username: BotController.BOT_USERNAME });
+      }
+
       broadcastLobbyUpdate(room);
       break;
     }
