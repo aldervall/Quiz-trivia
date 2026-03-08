@@ -753,24 +753,26 @@
       </div>`
     ).join('');
 
-    handEl.querySelectorAll('.play-card').forEach(el => {
-      el.addEventListener('click', () => {
-        console.log('[Swap] Hand card clicked, id=' + el.dataset.id);
-        onSwapClick('hand', el);
+    // Use event delegation: attach listeners to containers, not individual cards
+    // This survives re-rendering (which happens on every GAME_STATE update)
+    if (!handEl._listenerAttached) {
+      handEl.addEventListener('click', (e) => {
+        const card = e.target.closest('.play-card');
+        if (card) onSwapClick('hand', card);
       });
-    });
-    faceUpEl.querySelectorAll('.play-card').forEach(el => {
-      el.addEventListener('click', () => {
-        console.log('[Swap] Face-up card clicked, id=' + el.dataset.id);
-        onSwapClick('faceup', el);
+      handEl._listenerAttached = true;
+    }
+    if (!faceUpEl._listenerAttached) {
+      faceUpEl.addEventListener('click', (e) => {
+        const card = e.target.closest('.play-card');
+        if (card) onSwapClick('faceup', card);
       });
-    });
-    console.log('[Swap] Attached click listeners: ' + handEl.querySelectorAll('.play-card').length + ' hand cards, ' + faceUpEl.querySelectorAll('.play-card').length + ' face-up cards');
+      faceUpEl._listenerAttached = true;
+    }
   }
 
   function onSwapClick(zone, el) {
     const id = el.dataset.id;
-    console.log('[Swap] onSwapClick called: zone=' + zone + ', id=' + id);
     if (zone === 'hand') {
       document.querySelectorAll('#swap-hand .play-card').forEach(e => e.classList.remove('selected'));
       if (swapSelected.hand === id) { swapSelected.hand = null; return; }
@@ -927,13 +929,35 @@
       faceDownEl.innerHTML = '';
     }
 
+    // Use event delegation for playable cards (survives re-rendering)
     if (myTurn) {
-      document.querySelectorAll('#hand-cards .play-card, #faceup-cards .play-card').forEach(el => {
-        el.addEventListener('click', () => onPlayCardClick(el));
-      });
-      document.querySelectorAll('#facedown-cards .face-down-card').forEach(el => {
-        el.addEventListener('click', () => onFaceDownClick(el));
-      });
+      const handContainer = document.getElementById('hand-cards');
+      const faceUpContainer = document.getElementById('faceup-cards');
+      const faceDownContainer = document.getElementById('facedown-cards');
+
+      if (handContainer && !handContainer._listenerAttached) {
+        handContainer.addEventListener('click', (e) => {
+          const card = e.target.closest('.play-card');
+          if (card) onPlayCardClick(card);
+        });
+        handContainer._listenerAttached = true;
+      }
+
+      if (faceUpContainer && !faceUpContainer._listenerAttached) {
+        faceUpContainer.addEventListener('click', (e) => {
+          const card = e.target.closest('.play-card');
+          if (card) onPlayCardClick(card);
+        });
+        faceUpContainer._listenerAttached = true;
+      }
+
+      if (faceDownContainer && !faceDownContainer._listenerAttached) {
+        faceDownContainer.addEventListener('click', (e) => {
+          const card = e.target.closest('.face-down-card');
+          if (card) onFaceDownClick(card);
+        });
+        faceDownContainer._listenerAttached = true;
+      }
     }
     updateActionButtons();
     renderOpponents();
