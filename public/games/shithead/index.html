@@ -606,6 +606,9 @@
 <script src="/shared/utils.js"></script>
 <script src="/shared/sounds.js"></script>
 <script>
+  // Track page initialization
+  let initLog = ['[Init] Page script starting'];
+
   const roomCode   = location.pathname.split('/')[2]?.toUpperCase() || '';
   const storageKey = `gn-username-${roomCode}`;
   let myUsername   = sessionStorage.getItem(storageKey) || null;
@@ -627,22 +630,26 @@
       url: ws?.url,
     }),
     getDebugLog: () => debugLog,
+    getInitLog: () => initLog,
     addDebugLog: (msg) => {
       debugLog.push(msg);
       console.log(`[Debug] ${msg}`);
     },
   };
 
-  console.log(`[Shithead] roomCode=${roomCode}, storageKey=${storageKey}, myUsername=${myUsername}`);
+  initLog.push(`[Init] roomCode=${roomCode}, myUsername=${myUsername}`);
 
   document.getElementById('rules-link').href =
     `/rules?room=${encodeURIComponent(roomCode || '')}&from=${encodeURIComponent(location.pathname)}`;
 
+  initLog.push('[Init] Checking myUsername...');
   if (!myUsername) {
     // No stored username — redirect to lobby
-    console.log(`[Shithead] No username stored, redirecting to ${roomCode ? `/group/${roomCode}` : '/'}`);
-    window.location.href = roomCode ? `/group/${roomCode}` : '/';
+    const redirectUrl = roomCode ? `/group/${roomCode}` : '/';
+    initLog.push(`[Init] No username, redirecting to ${redirectUrl}`);
+    window.location.href = redirectUrl;
   }
+  initLog.push('[Init] Username OK, continuing...');
 
   // ── Connect ────────────────────────────────────────────────────────────────
   function buildWsUrl() {
@@ -1204,8 +1211,13 @@
     send({ type: 'RETURN_TO_LOBBY' });
   });
 
-  window.shiteadDebug?.addDebugLog('About to call connect() at end of script');
-  connect();
+  initLog.push('[Init] About to call connect()');
+  try {
+    connect();
+    initLog.push('[Init] connect() called successfully');
+  } catch (e) {
+    initLog.push(`[Init] connect() threw error: ${e.message}`);
+  }
 </script>
 </body>
 </html>

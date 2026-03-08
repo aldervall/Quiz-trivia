@@ -6,6 +6,7 @@ const browser = await puppeteer.launch({ executablePath: chromePath, headless: t
 const [p1, p2] = [await browser.newPage(), await browser.newPage()];
 
 // Capture console logs and errors
+let p1Errors = [];
 p1.on('console', msg => {
   const args = msg.args();
   if (msg.type() === 'log' && msg.text()) {
@@ -14,7 +15,10 @@ p1.on('console', msg => {
     console.log(`[P1-${msg.type()}] ${msg.text()}`);
   }
 });
-p1.on('pageerror', err => console.log(`[P1-pageerror] ${err.message}`));
+p1.on('pageerror', err => {
+  console.log(`[P1-pageerror] ${err.message}`);
+  p1Errors.push(err.message);
+});
 p2.on('console', msg => {
   if (msg.type() === 'log' && msg.text()) {
     console.log(`[P2-console] ${msg.text()}`);
@@ -66,20 +70,38 @@ try {
     const roomCode = location.pathname.split('/')[2]?.toUpperCase() || '';
     const storageKey = `gn-username-${roomCode}`;
     const myUsername = sessionStorage.getItem(storageKey);
+    const buildWsUrlFn = typeof window.buildWsUrl === 'function' ? window.buildWsUrl : null;
+    let wsUrl = null;
+    try {
+      wsUrl = buildWsUrlFn ? buildWsUrlFn() : null;
+    } catch (e) {
+      wsUrl = `ERROR: ${e.message}`;
+    }
+    const debugObjExists = typeof window.shiteadDebug !== 'undefined';
     const wsState = window.shiteadDebug?.getWsState() || { exists: false, readyState: null, url: null };
     const debugLog = window.shiteadDebug?.getDebugLog() || [];
+    const initLog = window.shiteadDebug?.getInitLog() || [];
     return {
       roomCode,
       storageKey,
       myUsername,
       sessionStorageKeys: Object.keys(sessionStorage),
+      buildWsUrl_Result: wsUrl,
+      debugObjExists,
       ...wsState,
       connectFnExists: typeof window.connect === 'function',
-      buildWsUrlFnExists: typeof window.buildWsUrl === 'function',
+      buildWsUrlFnExists: buildWsUrlFn !== null,
+      initLog,
       debugLog,
     };
   });
-  console.log('Shithead state:', JSON.stringify(shState, null, 2));
+  console.log('Initialization log:');
+  shState.initLog.forEach(line => console.log(`  ${line}`));
+  console.log('\nShithead state:', JSON.stringify({...shState, initLog: undefined, debugLog: undefined}, null, 2));
+  if (p1Errors.length > 0) {
+    console.log('\n=== PAGE ERRORS ===');
+    p1Errors.forEach(e => console.log(`  ${e}`));
+  }
 
   console.log('\n=== PAGE STRUCTURE ===');
   const structure = await js(p1, () => ({
@@ -100,9 +122,14 @@ try {
 
   console.log('\n=== NETWORK TRAFFIC ===');
   const ws = await js(p1, () => {
+    // Check for any WebSocket-like objects on window
+    const wsObject = Object.keys(window).filter(k => k.toLowerCase().includes('ws') || k.toLowerCase().includes('socket'));
     return {
       wsReady: typeof window.ws !== 'undefined' && window.ws?.readyState === 1,
+      wsExists: typeof window.ws !== 'undefined',
+      wsReadyState: window.ws?.readyState,
       wsURL: window.ws?.url || 'unknown',
+      wsObjectsOnWindow: wsObject,
     };
   });
   console.log('WebSocket:', ws);
