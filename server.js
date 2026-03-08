@@ -353,7 +353,6 @@ wss.on('connection', (ws, req) => {
     }
     const room = rooms.get(roomCode);
     room.playerSockets.add(ws);
-    console.log(`[WS] Player connected to room ${roomCode}, playerSockets size: ${room.playerSockets.size}`);
     sendTo(ws, { type: 'CONNECTED', lang: room.language });
 
     ws.on('message', (raw) => {
@@ -365,13 +364,11 @@ wss.on('connection', (ws, req) => {
       }
       let msg;
       try { msg = JSON.parse(raw); } catch { return; }
-      console.log(`[WS] Player ${roomCode} received message: ${msg.type}`);
       handleMessage(ws, 'player', msg, room);
     });
 
     ws.on('close', () => {
-      const hadSocket = room.playerSockets.delete(ws);
-      console.log(`[WS] Player disconnected from room ${roomCode}, had socket: ${hadSocket}, remaining: ${room.playerSockets.size}`);
+      room.playerSockets.delete(ws);
       handlePlayerDisconnect(ws, room);
     });
 
@@ -405,28 +402,18 @@ setInterval(() => {
     }
     // Tick and broadcast shithead games
     if (room.shitheadGame && room.activeMiniGame === 'shithead') {
-      // Log every 5 ticks (~500ms)
-      if (tickCounter % 5 === 0) {
-        console.log(`[Tick ${tickCounter}] Shithead room ${code}: phase=${room.shitheadGame.phase}, players=${room.playerSockets.size}, displays=${room.displaySockets.size}`);
-      }
       room.shitheadGame.tick();
       const gameState = room.shitheadGame.getState();
       const stateMsg = JSON.stringify({ type: 'GAME_STATE', ...gameState });
-      let playersSent = 0, displaysSent = 0;
       for (const ws of room.playerSockets) {
         if (ws.readyState === 1) {
           ws.send(stateMsg);
-          playersSent++;
         }
       }
       for (const ws of room.displaySockets) {
         if (ws.readyState === 1) {
           ws.send(stateMsg);
-          displaysSent++;
         }
-      }
-      if (tickCounter % 20 === 0) {
-        console.log(`  → Sent GAME_STATE to ${playersSent} players, ${displaysSent} displays`);
       }
     }
   }
