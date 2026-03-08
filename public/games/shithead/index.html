@@ -617,11 +617,24 @@
   let selectedCardIds = new Set();
   let ws, connectGen = 0;
 
+  // Expose debug state for testing
+  window.shiteadDebug = {
+    getRoomCode: () => roomCode,
+    getWsState: () => ({
+      exists: ws !== undefined && ws !== null,
+      readyState: ws?.readyState,
+      url: ws?.url,
+    }),
+  };
+
+  console.log(`[Shithead] roomCode=${roomCode}, storageKey=${storageKey}, myUsername=${myUsername}`);
+
   document.getElementById('rules-link').href =
     `/rules?room=${encodeURIComponent(roomCode || '')}&from=${encodeURIComponent(location.pathname)}`;
 
   if (!myUsername) {
     // No stored username — redirect to lobby
+    console.log(`[Shithead] No username stored, redirecting to ${roomCode ? `/group/${roomCode}` : '/'}`);
     window.location.href = roomCode ? `/group/${roomCode}` : '/';
   }
 
@@ -633,24 +646,33 @@
 
   function connect() {
     const gen = ++connectGen;
-    ws = new WebSocket(buildWsUrl());
+    const wsUrl = buildWsUrl();
+    console.log(`[Shithead] Connecting to WebSocket: ${wsUrl}`);
+    ws = new WebSocket(wsUrl);
+    console.log(`[Shithead] WebSocket created, gen=${gen}`);
     document.getElementById('reconnecting').classList.remove('show');
 
     ws.addEventListener('open', () => {
       if (gen !== connectGen) return;
+      console.log('[Shithead] WebSocket connected, sending JOIN_LOBBY');
       document.getElementById('reconnecting').classList.remove('show');
       send({ type: 'JOIN_LOBBY', username: myUsername });
     });
     ws.addEventListener('message', e => {
+      console.log(`[Shithead] Received message: ${e.data.substring(0, 100)}...`);
       if (gen !== connectGen) return;
       handleMsg(JSON.parse(e.data));
     });
     ws.addEventListener('close', () => {
       if (gen !== connectGen) return;
+      console.log('[Shithead] WebSocket closed, reconnecting in 2s');
       document.getElementById('reconnecting').classList.add('show');
       setTimeout(connect, 2000);
     });
-    ws.addEventListener('error', () => ws.close());
+    ws.addEventListener('error', (err) => {
+      console.error('[Shithead] WebSocket error:', err);
+      ws.close();
+    });
   }
 
   function send(msg) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg)); }
@@ -1034,9 +1056,11 @@
 
       case 'GAME_STATE':
         // Handle the new state-based protocol from ShiteadController
+        console.log(`[Shithead] Received GAME_STATE: phase=${msg.phase}`);
         gameState = { state: msg.phase };
 
         if (msg.phase === 'SETUP') {
+          console.log('[Shithead] Showing waiting screen for SETUP');
           show('waiting');
           document.getElementById('waiting-name').textContent = 'Game starting…';
           document.getElementById('waiting-players').textContent = '';
@@ -1168,6 +1192,7 @@
     send({ type: 'RETURN_TO_LOBBY' });
   });
 
+  console.log('[Shithead] Calling connect()');
   connect();
 </script>
 </body>
