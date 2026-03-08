@@ -352,6 +352,7 @@ wss.on('connection', (ws, req) => {
     }
     const room = rooms.get(roomCode);
     room.playerSockets.add(ws);
+    console.log(`[WS] Player connected to room ${roomCode}, playerSockets size: ${room.playerSockets.size}`);
     sendTo(ws, { type: 'CONNECTED', lang: room.language });
 
     ws.on('message', (raw) => {
@@ -367,7 +368,8 @@ wss.on('connection', (ws, req) => {
     });
 
     ws.on('close', () => {
-      room.playerSockets.delete(ws);
+      const hadSocket = room.playerSockets.delete(ws);
+      console.log(`[WS] Player disconnected from room ${roomCode}, had socket: ${hadSocket}, remaining: ${room.playerSockets.size}`);
       handlePlayerDisconnect(ws, room);
     });
 
