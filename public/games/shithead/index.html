@@ -758,26 +758,33 @@
     if (!handEl._listenerAttached) {
       handEl.addEventListener('click', (e) => {
         const card = e.target.closest('.play-card');
+        console.log('[Swap] Hand container click, card found: ' + (card ? card.dataset.id : 'none'));
         if (card) onSwapClick('hand', card);
       });
       handEl._listenerAttached = true;
+      console.log('[Swap] Hand container listener attached');
     }
     if (!faceUpEl._listenerAttached) {
       faceUpEl.addEventListener('click', (e) => {
         const card = e.target.closest('.play-card');
+        console.log('[Swap] FaceUp container click, card found: ' + (card ? card.dataset.id : 'none'));
         if (card) onSwapClick('faceup', card);
       });
       faceUpEl._listenerAttached = true;
+      console.log('[Swap] FaceUp container listener attached');
     }
   }
 
   function onSwapClick(zone, el) {
     const id = el.dataset.id;
+    console.log('[Swap] onSwapClick: zone=' + zone + ', id=' + id + ', el=' + (el ? 'found' : 'null'));
     if (zone === 'hand') {
       document.querySelectorAll('#swap-hand .play-card').forEach(e => e.classList.remove('selected'));
       if (swapSelected.hand === id) { swapSelected.hand = null; return; }
       swapSelected.hand = id;
+      console.log('[Swap] Adding selected class to element, hasClass=' + el.classList.contains('selected'));
       el.classList.add('selected');
+      console.log('[Swap] After add, hasClass=' + el.classList.contains('selected'));
       GNSound.select(); GN.haptic('tick');
     } else {
       document.querySelectorAll('#swap-faceup .play-card').forEach(e => e.classList.remove('selected'));
