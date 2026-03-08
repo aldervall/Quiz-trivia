@@ -291,7 +291,14 @@ function handleMessage(ws, role, msg, room) {
       } else if (gameType === 'shithead') {
         room.shitheadGame = new ShiteadController();
         for (const [uname, p] of room.players) {
-          room.shitheadGame.addPlayer(p.ws, uname, { isBot: p.isBot });
+          room.shitheadGame.addPlayer(uname, {
+            username: uname,
+            ws: p.ws,
+            isBot: p.isBot,
+            cardHand: [],
+            cardFaceUp: [],
+            cardFaceDown: [],
+          });
         }
         room.shitheadGame.start();
       } else if (gameType === 'cah') {
