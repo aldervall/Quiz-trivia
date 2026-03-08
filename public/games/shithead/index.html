@@ -754,15 +754,23 @@
     ).join('');
 
     handEl.querySelectorAll('.play-card').forEach(el => {
-      el.addEventListener('click', () => onSwapClick('hand', el));
+      el.addEventListener('click', () => {
+        console.log('[Swap] Hand card clicked, id=' + el.dataset.id);
+        onSwapClick('hand', el);
+      });
     });
     faceUpEl.querySelectorAll('.play-card').forEach(el => {
-      el.addEventListener('click', () => onSwapClick('faceup', el));
+      el.addEventListener('click', () => {
+        console.log('[Swap] Face-up card clicked, id=' + el.dataset.id);
+        onSwapClick('faceup', el);
+      });
     });
+    console.log('[Swap] Attached click listeners: ' + handEl.querySelectorAll('.play-card').length + ' hand cards, ' + faceUpEl.querySelectorAll('.play-card').length + ' face-up cards');
   }
 
   function onSwapClick(zone, el) {
     const id = el.dataset.id;
+    console.log('[Swap] onSwapClick called: zone=' + zone + ', id=' + id);
     if (zone === 'hand') {
       document.querySelectorAll('#swap-hand .play-card').forEach(e => e.classList.remove('selected'));
       if (swapSelected.hand === id) { swapSelected.hand = null; return; }
