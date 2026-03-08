@@ -1032,6 +1032,35 @@
           `${msg.readyCount} of ${msg.total} ready…`;
         break;
 
+      case 'GAME_STATE':
+        // Handle the new state-based protocol from ShiteadController
+        gameState = { state: msg.phase };
+
+        if (msg.phase === 'SETUP') {
+          show('waiting');
+          document.getElementById('waiting-name').textContent = 'Game starting…';
+          document.getElementById('waiting-players').textContent = '';
+        } else if (msg.phase === 'SWAP') {
+          if (myState && myState.hand) {
+            show('swap');
+            renderSwap();
+          } else {
+            show('waiting');
+            document.getElementById('waiting-name').textContent = 'Swap phase…';
+          }
+        } else if (msg.phase === 'REVEAL') {
+          show('waiting');
+          document.getElementById('waiting-name').textContent = 'Revealing cards…';
+        } else if (msg.phase === 'PLAY') {
+          if (!document.getElementById('playing').classList.contains('active')) {
+            show('playing');
+          }
+          renderPlaying();
+        } else if (msg.phase === 'GAME_OVER') {
+          show('gameover');
+        }
+        break;
+
       case 'SHITHEAD_PILE_BURNED':
         GNSound.correct(); GN.haptic('success');
         showToast('🔥 Pile burned! Play again!', 2500);
