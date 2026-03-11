@@ -3,6 +3,7 @@
 const QuizController = require('./QuizController');
 const BotController = require('./BotController');
 const ShiteadController = require('./ShiteadController');
+const GuessController = require('../games/guess/server');
 const { CAHGame } = require('../cah');
 const spyGame = require('../games/spy/server');
 const { LyricsGame } = require('../games/lyrics/server/game');
@@ -254,7 +255,7 @@ function handleMessage(ws, role, msg, room) {
       const username = room.wsToUsername.get(ws);
       if (!username) break;
       const gameType = msg.gameType;
-      if (!['quiz', 'shithead', 'cah', 'spy', 'lyrics'].includes(gameType)) break;
+      if (!['quiz', 'shithead', 'cah', 'spy', 'lyrics', 'guess'].includes(gameType)) break;
       room.gameSuggestions.set(username, gameType);
       broadcastLobbyUpdate(room);
       break;
@@ -281,6 +282,10 @@ function handleMessage(ws, role, msg, room) {
       }
       if (gameType === 'spy' && room.players.size < 3) {
         sendTo(ws, { type: 'ERROR', code: 'NOT_ENOUGH_PLAYERS', message: 'Spy Game requires at least 3 players.' });
+        break;
+      }
+      if (gameType === 'guess' && room.players.size < 1) {
+        sendTo(ws, { type: 'ERROR', code: 'NOT_ENOUGH_PLAYERS', message: 'Guess requires at least 1 player.' });
         break;
       }
 
@@ -329,6 +334,17 @@ function handleMessage(ws, role, msg, room) {
           room.lyricsGame.addPlayer(p.ws, uname);
         }
         room.lyricsGame.startGame(questionCount);
+      } else if (gameType === 'guess') {
+        // Example game using new GameController pattern
+        room.game = new GuessController();
+        for (const [uname, p] of room.players) {
+          room.game.addPlayer(uname, {
+            score: 0,
+            lastGuess: null,
+            feedback: ''
+          });
+        }
+        room.game.start();
       }
       break;
     }
