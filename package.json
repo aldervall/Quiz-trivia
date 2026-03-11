@@ -6,7 +6,9 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test",
-    "coverage": "nyc npm test"
+    "coverage": "nyc npm test",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "nyc": {
     "all": true,
@@ -42,6 +44,7 @@
     "ws": "^8.19.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "nyc": "^18.0.0",
     "puppeteer-core": "^24.37.5"
   }

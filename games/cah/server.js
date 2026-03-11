@@ -8,7 +8,7 @@
 'use strict';
 
 const GameController = require('../../server/GameController');
-const CAHGameLogic = require('./game-logic');
+const { CAHGame: CAHGameLogic } = require('./game-logic');
 
 class CAHGameController extends GameController {
   constructor(maxRounds = 8) {
@@ -30,7 +30,7 @@ class CAHGameController extends GameController {
 
     // Add players with fake WebSocket objects
     for (const [username] of this.players) {
-      const fakeWs = { readyState: 1 };
+      const fakeWs = { readyState: 1, send: () => {} }; // Room handles actual broadcasting
       this.wsMap.set(username, fakeWs);
       this.cahGame.addPlayer(fakeWs, username);
     }

@@ -104,6 +104,9 @@ function serveFile(rel) {
   return (_req, res) => res.sendFile(path.join(__dirname, rel));
 }
 
+// Health check endpoint (required for Playwright test readiness)
+app.get('/health', (req, res) => res.json({ ok: true, status: 'healthy' }));
+
 // Modern routes
 app.get('/player/:code',         pageRateLimit, serveFile('public/player/index.html'));
 app.get('/host/:code',           pageRateLimit, serveFile('public/host/index.html'));

@@ -8,7 +8,7 @@
 'use strict';
 
 const GameController = require('../../server/GameController');
-const LyricsGameLogic = require('./server/game');
+const { LyricsGame: LyricsGameLogic } = require('./server/game');
 
 class LyricsGameController extends GameController {
   constructor(questionCount = 10) {
