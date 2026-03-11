@@ -490,6 +490,16 @@ function handleMessage(ws, role, msg, room) {
       break;
     }
 
+    case 'SHITHEAD_SWAP_CARD': {
+      const username = room.wsToUsername.get(ws);
+      if (!username || !room.shitheadGame) break;
+      const { handCardId, faceUpCardId } = msg;
+      if (handCardId && faceUpCardId) {
+        room.shitheadGame.swapCard(username, handCardId, faceUpCardId);
+      }
+      break;
+    }
+
     // ── Spy game messages ─────────────────────────────────────────────────
     case 'SEND_CLUE':
     case 'SEND_GUESS': {

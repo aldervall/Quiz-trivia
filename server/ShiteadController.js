@@ -135,6 +135,75 @@ class ShiteadController extends GameController {
     }
   }
 
+  swapCard(username, handCardId, faceUpCardId) {
+    // During SWAP phase, exchange a hand card with a face-up card
+    if (this.phase !== 'SWAP') return false
+
+    const player = this.players.get(username)
+    if (!player || !player.cardHand || !player.cardFaceUp) return false
+
+    // Parse card IDs: format is "rank-suit-index"
+    const handIdx = parseInt(handCardId.split('-').pop())
+    const faceUpIdx = parseInt(faceUpCardId.split('-').pop())
+
+    if (handIdx < 0 || handIdx >= player.cardHand.length ||
+        faceUpIdx < 0 || faceUpIdx >= player.cardFaceUp.length) {
+      return false
+    }
+
+    // Swap the cards
+    const temp = player.cardHand[handIdx]
+    player.cardHand[handIdx] = player.cardFaceUp[faceUpIdx]
+    player.cardFaceUp[faceUpIdx] = temp
+
+    return true
+  }
+
+  /**
+   * Gets bot's intelligent card choice for SWAP phase
+   * Bot chooses the worst hand card and best face-up card to swap
+   */
+  getBotSwapChoice(username) {
+    const player = this.players.get(username)
+    if (!player || !player.cardHand || !player.cardFaceUp) return null
+
+    const rankValue = (card) => {
+      const order = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
+      return order.indexOf(card.rank)
+    }
+
+    // Find worst (lowest) card in hand
+    let worstHandIdx = 0
+    let worstValue = rankValue(player.cardHand[0])
+    for (let i = 1; i < player.cardHand.length; i++) {
+      const val = rankValue(player.cardHand[i])
+      if (val < worstValue) {
+        worstValue = val
+        worstHandIdx = i
+      }
+    }
+
+    // Find best (highest) card in face-up
+    let bestFaceUpIdx = 0
+    let bestValue = rankValue(player.cardFaceUp[0])
+    for (let i = 1; i < player.cardFaceUp.length; i++) {
+      const val = rankValue(player.cardFaceUp[i])
+      if (val > bestValue) {
+        bestValue = val
+        bestFaceUpIdx = i
+      }
+    }
+
+    const handCard = player.cardHand[worstHandIdx]
+    const faceUpCard = player.cardFaceUp[bestFaceUpIdx]
+
+    // Build card IDs in format "rank-suit-index"
+    return {
+      handCardId: `${handCard.rank}-${handCard.suit}-${worstHandIdx}`,
+      faceUpCardId: `${faceUpCard.rank}-${faceUpCard.suit}-${bestFaceUpIdx}`
+    }
+  }
+
   /**
    * Private helpers
    */

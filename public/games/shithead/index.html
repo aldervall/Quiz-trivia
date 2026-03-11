@@ -767,8 +767,15 @@
           onSwapClick('hand', card);
         }
       });
+      handEl.addEventListener('touchstart', (e) => {
+        const card = e.target.closest('.play-card');
+        if (card) {
+          console.log('[Touch] Hand card touched: ' + card.dataset.id);
+          onSwapClick('hand', card);
+        }
+      }, { passive: true });
       handEl._listenerAttached = true;
-      console.log('[Swap] Hand listener attached and ready for clicks');
+      console.log('[Swap] Hand listener attached and ready for clicks/touches');
     }
     if (!faceUpEl._listenerAttached) {
       faceUpEl.addEventListener('click', (e) => {
@@ -778,8 +785,15 @@
           onSwapClick('faceup', card);
         }
       });
+      faceUpEl.addEventListener('touchstart', (e) => {
+        const card = e.target.closest('.play-card');
+        if (card) {
+          console.log('[Touch] FaceUp card touched: ' + card.dataset.id);
+          onSwapClick('faceup', card);
+        }
+      }, { passive: true });
       faceUpEl._listenerAttached = true;
-      console.log('[Swap] FaceUp listener attached and ready for clicks');
+      console.log('[Swap] FaceUp listener attached and ready for clicks/touches');
     }
   }
 

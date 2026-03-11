@@ -403,6 +403,28 @@ setInterval(() => {
     // Tick and broadcast shithead games
     if (room.shitheadGame && room.activeMiniGame === 'shithead') {
       room.shitheadGame.tick();
+
+      // Auto-swap for bot players during SWAP phase
+      if (room.shitheadGame.phase === 'SWAP') {
+        for (const [username, player] of room.shitheadGame.players) {
+          if (player.isBot && !player.ws) {
+            // Bot hasn't swapped yet
+            const swapChoice = room.shitheadGame.getBotSwapChoice(username);
+            if (swapChoice) {
+              // Small random delay for natural feel (500-1500ms)
+              if (!player._botSwapScheduled) {
+                player._botSwapScheduled = true;
+                const delayMs = 500 + Math.random() * 1000;
+                setTimeout(() => {
+                  room.shitheadGame.swapCard(username, swapChoice.handCardId, swapChoice.faceUpCardId);
+                  player._botSwapScheduled = false;
+                }, delayMs);
+              }
+            }
+          }
+        }
+      }
+
       const gameState = room.shitheadGame.getState();
       const stateMsg = JSON.stringify({ type: 'GAME_STATE', ...gameState });
       for (const ws of room.playerSockets) {
