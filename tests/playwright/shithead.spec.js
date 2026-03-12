@@ -158,4 +158,67 @@ test.describe('Shithead Card Game - Multi-Player', () => {
     await ctx3.close();
   });
 
+  test('five players: stress test with maximum players', async ({ request, browser }) => {
+    const code = await createRoom(request);
+    const contexts = [];
+    const pages = [];
+
+    // Create 5 player contexts
+    for (let i = 0; i < 5; i++) {
+      const ctx = await browser.newContext();
+      contexts.push(ctx);
+      pages.push(await ctx.newPage());
+    }
+
+    // Join all 5 players
+    await joinRoom(pages[0], code, 'Alice');
+    await joinRoom(pages[1], code, 'Bob');
+    await joinRoom(pages[2], code, 'Charlie');
+    await joinRoom(pages[3], code, 'Diana');
+    await joinRoom(pages[4], code, 'Eve');
+
+    // Start game (admin)
+    await startMiniGame(pages[0], 'shithead');
+
+    // All navigate to game
+    for (const page of pages) {
+      await page.waitForURL(/\/group\/[A-Z]{4}\/shithead/, { timeout: 15_000 });
+    }
+
+    // SWAP phase - all players swap
+    await waitForAllPlayersInPhase(pages, 'swap', 15_000);
+
+    for (const page of pages) {
+      await performCardSwap(page, 0, 0);
+      await confirmSwap(page);
+    }
+
+    // Verify REVEAL and PLAY phases
+    await waitForAllPlayersInPhase(pages, 'reveal', 10_000);
+    await waitForAllPlayersInPhase(pages, 'playing', 10_000);
+
+    // Verify all players see same state
+    const states = [];
+    for (const page of pages) {
+      states.push(await getGameState(page));
+    }
+
+    // All should be in PLAY phase
+    for (const state of states) {
+      expect(state.phase).toBe('PLAY');
+      expect(state.players?.length).toBe(5);
+    }
+
+    // All should see same current player
+    const firstCurrentPlayer = states[0].currentPlayerUsername;
+    for (const state of states) {
+      expect(state.currentPlayerUsername).toBe(firstCurrentPlayer);
+    }
+
+    // Cleanup
+    for (const ctx of contexts) {
+      await ctx.close();
+    }
+  });
+
 });
