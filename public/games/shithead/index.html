@@ -93,7 +93,7 @@
     .deck-back {
       position: absolute;
       width: 76px; height: 116px;
-      background: linear-gradient(135deg, #2d2a7c, #1a1760);
+      background: var(--bg);
       border-radius: 8px;
       border: 2px solid rgba(255,255,255,0.18);
       box-shadow: 0 3px 10px rgba(0,0,0,0.5);
@@ -505,7 +505,7 @@
     @keyframes blink { 0%,80%,100% { opacity:0.2; } 40% { opacity:1; } }
   </style>
 </head>
-<body class="bg-mesh">
+<body class="bg-mesh bg-noise">
 
 <div id="reconnecting">
   <div class="spinner"></div>

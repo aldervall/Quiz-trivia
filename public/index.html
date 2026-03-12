@@ -21,10 +21,10 @@
     .landing-card {
       position: relative;
       z-index: 1;
-      background: rgba(26, 25, 50, 0.8);
-      backdrop-filter: blur(20px);
-      -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255, 255, 255, 0.06);
+      background: var(--glass-bg-medium);
+      backdrop-filter: blur(var(--glass-blur));
+      -webkit-backdrop-filter: blur(var(--glass-blur));
+      border: 1px solid var(--glass-border);
       border-radius: var(--radius-xl);
       padding: clamp(1.5rem, 5vw, 3rem) clamp(1.5rem, 5vw, 2.5rem);
       width: min(500px, calc(100vw - 2rem));

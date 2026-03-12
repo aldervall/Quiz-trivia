@@ -47,6 +47,11 @@
       align-items: stretch;
       justify-content: flex-start;
       padding: 0;
+      position: relative;
+    }
+
+    body.bg-mesh::before {
+      z-index: -1;
     }
 
     /* ═══════════════════════════════════════════════════════════════════════ */
@@ -54,8 +59,10 @@
     /* ═══════════════════════════════════════════════════════════════════════ */
     .header {
       padding: max(1rem, env(safe-area-inset-top)) clamp(1rem, 5vw, 1.5rem) 1rem;
-      background: linear-gradient(135deg, var(--surface) 0%, var(--surface-alt) 100%);
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      background: var(--glass-bg-medium);
+      backdrop-filter: blur(var(--glass-blur-sm));
+      -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+      border-bottom: 1px solid var(--glass-border);
       display: flex;
       align-items: center;
       justify-content: space-between;
@@ -188,8 +195,10 @@
       align-items: center;
       gap: 0.75rem;
       padding: 1rem;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur-sm));
+      -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+      border: 1px solid var(--glass-border);
       border-radius: var(--radius);
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
       position: relative;
@@ -271,8 +280,10 @@
 
     .game-chip {
       padding: 1rem;
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: var(--glass-bg);
+      backdrop-filter: blur(var(--glass-blur-sm));
+      -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+      border: 1px solid var(--glass-border);
       border-radius: var(--radius);
       cursor: pointer;
       transition: all 0.2s;
@@ -377,8 +388,10 @@
       bottom: 0;
       left: 0;
       right: 0;
-      background: var(--surface);
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--glass-bg-medium);
+      backdrop-filter: blur(var(--glass-blur-sm));
+      -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+      border-top: 1px solid var(--glass-border);
       border-top-left-radius: var(--radius-lg);
       border-top-right-radius: var(--radius-lg);
       max-height: 0;
@@ -675,23 +688,25 @@
     }
   </style>
 </head>
-<body>
+<body class="bg-mesh bg-noise">
   <!-- ════════════════════════════════════════════════════════════════ -->
   <!-- USERNAME ENTRY OVERLAY -->
   <!-- ════════════════════════════════════════════════════════════════ -->
   <div id="username-overlay" style="
     position: fixed;
     inset: 0;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.6);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    backdrop-filter: blur(4px);
+    backdrop-filter: blur(8px);
   ">
     <div style="
-      background: var(--surface);
-      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: var(--glass-bg-medium);
+      backdrop-filter: blur(var(--glass-blur-sm));
+      -webkit-backdrop-filter: blur(var(--glass-blur-sm));
+      border: 1px solid var(--glass-border);
       border-radius: 20px;
       padding: 2rem;
       width: 90%;

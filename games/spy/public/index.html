@@ -83,7 +83,7 @@
     }
 
     .status-badge.spy-badge {
-      background: linear-gradient(135deg, #ff4444, #ff0000);
+      background: var(--bg);
       box-shadow: 0 0 20px rgba(255, 68, 68, 0.5);
       animation: pulse 1s ease-in-out infinite;
     }
@@ -344,13 +344,13 @@
     }
 
     .result-badge.correct {
-      background: linear-gradient(135deg, #44ff44, #00dd00);
+      background: var(--bg);
       color: white;
       box-shadow: 0 0 20px rgba(68, 255, 68, 0.4);
     }
 
     .result-badge.wrong {
-      background: linear-gradient(135deg, #ff4444, #ff0000);
+      background: var(--bg);
       color: white;
       box-shadow: 0 0 20px rgba(255, 68, 68, 0.4);
     }
@@ -435,7 +435,7 @@
     }
   </style>
 </head>
-<body>
+<body class="bg-mesh bg-noise">
   <!-- SETUP PHASE -->
   <div id="phase-setup" class="container">
     <div class="round-indicator" id="setup-round">Round 1 / 10</div>
