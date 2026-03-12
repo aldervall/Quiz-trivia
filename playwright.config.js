@@ -20,7 +20,10 @@ module.exports = defineConfig({
     },
   ],
   // Note: Start server manually with `npm start` in another terminal
-  // WebServer is disabled due to issues with HTTPS certificate validation
+  // WebServer is disabled due to issues with HTTPS self-signed certificate validation.
+  // To run tests:
+  //   Terminal 1: npm start
+  //   Terminal 2: npm run test:e2e
   // webServer: {
   //   command: 'npm start',
   //   url: 'https://localhost:3000/health',
