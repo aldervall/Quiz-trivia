@@ -221,4 +221,53 @@ test.describe('Shithead Card Game - Multi-Player', () => {
     }
   });
 
+  test('card swaps: verify swap mechanics during SWAP phase', async ({ request, browser }) => {
+    const code = await createRoom(request);
+    const ctx1 = await browser.newContext();
+    const ctx2 = await browser.newContext();
+    const p1 = await ctx1.newPage();
+    const p2 = await ctx2.newPage();
+
+    await joinRoom(p1, code, 'Alice');
+    await joinRoom(p2, code, 'Bob');
+    await startMiniGame(p1, 'shithead');
+
+    // Navigate to game
+    await p1.waitForURL(/\/group\/[A-Z]{4}\/shithead/, { timeout: 15_000 });
+    await p2.waitForURL(/\/group\/[A-Z]{4}\/shithead/, { timeout: 15_000 });
+
+    // SWAP phase
+    await waitForAllPlayersInPhase([p1, p2], 'swap', 15_000);
+
+    // Get initial card counts
+    const initialHand1 = await p1.locator('.hand .card').count();
+    const initialFaceUp1 = await p1.locator('.faceup .card').count();
+
+    expect(initialHand1).toBeGreaterThan(0);
+    expect(initialFaceUp1).toBeGreaterThan(0);
+
+    // Perform multiple swaps
+    for (let i = 0; i < 2; i++) {
+      await performCardSwap(p1, 0, 0);
+      await p1.waitForTimeout(200);
+    }
+
+    // Card counts should remain the same after swap
+    const finalHand1 = await p1.locator('.hand .card').count();
+    const finalFaceUp1 = await p1.locator('.faceup .card').count();
+
+    expect(finalHand1).toBe(initialHand1);
+    expect(finalFaceUp1).toBe(initialFaceUp1);
+
+    // Confirm swaps
+    await confirmSwap(p1);
+    await confirmSwap(p2);
+
+    // Verify transition to REVEAL
+    await waitForAllPlayersInPhase([p1, p2], 'reveal', 10_000);
+
+    await ctx1.close();
+    await ctx2.close();
+  });
+
 });
