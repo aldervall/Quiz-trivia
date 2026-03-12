@@ -397,10 +397,18 @@ setInterval(() => {
       broadcastAll(room, { type: 'GAME_STATE', ...gameState });
     }
     // Tick and broadcast shithead games
+    if (room.shitheadGame) {
+      console.log(`[Server] Shithead game exists for room ${room.code}, phase=${room.shitheadGame.phase}`);
+    } else if (room.activeMiniGame === 'shithead') {
+      console.log(`[Server] WARNING: activeMiniGame='shithead' but shitheadGame is null!`);
+    }
+
     if (room.shitheadGame && room.activeMiniGame === 'shithead') {
       room.shitheadGame.tick();
       room.shitheadGame.processBotSwaps();
       const gameState = room.shitheadGame.getState();
+
+      console.log(`[Server] Broadcasting GAME_STATE for room ${room.code}: phase=${gameState.phase}, players=${gameState.players?.length}`);
 
       // Send GAME_STATE to displays without player-specific state
       for (const ws of room.displaySockets) {
@@ -412,6 +420,7 @@ setInterval(() => {
         if (player.ws) {
           const playerState = room.shitheadGame.getPlayerState(username);
           if (playerState) {
+            console.log(`[Server]   Sending to ${username}: phase=${gameState.phase}`);
             player.ws.send(JSON.stringify({
               type: 'GAME_STATE',
               ...gameState,

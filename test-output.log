@@ -1,0 +1,42 @@
+
+> quiz-trivia@1.0.1 test:e2e
+> playwright test tests/playwright/shithead.spec.js --grep two players --headed --timeout=30000
+
+
+Running 1 test using 1 worker
+
+  ✘  1 [chromium] › tests/playwright/shithead.spec.js:13:3 › Shithead Card Game - Multi-Player › two players: setup → swap → reveal → play → game over (19.7s)
+
+
+  1) [chromium] › tests/playwright/shithead.spec.js:13:3 › Shithead Card Game - Multi-Player › two players: setup → swap → reveal → play → game over 
+
+    TimeoutError: locator.waitFor: Timeout 15000ms exceeded.
+    Call log:
+    [2m  - waiting for locator('#swap.active') to be visible[22m
+
+
+       at helpers/shithead.js:58
+
+      56 | async function waitForAllPlayersInPhase(playerPages, phaseScreenId, timeout = 20_000) {
+      57 |   const promises = playerPages.map(page =>
+    > 58 |     page.locator(`#${phaseScreenId}.active`).waitFor({ state: 'visible', timeout })
+         |                                              ^
+      59 |   );
+      60 |   await Promise.all(promises);
+      61 | }
+        at map (/home/dellvall/small-hours/tests/playwright/helpers/shithead.js:58:46)
+        at waitForAllPlayersInPhase (/home/dellvall/small-hours/tests/playwright/helpers/shithead.js:57:32)
+        at /home/dellvall/small-hours/tests/playwright/shithead.spec.js:33:11
+
+    Error Context: test-results/shithead-Shithead-Card-Gam-98d71-→-reveal-→-play-→-game-over-chromium/error-context.md
+
+    attachment #2: trace (application/zip) ─────────────────────────────────────────────────────────
+    test-results/shithead-Shithead-Card-Gam-98d71-→-reveal-→-play-→-game-over-chromium/trace.zip
+    Usage:
+
+        npx playwright show-trace test-results/shithead-Shithead-Card-Gam-98d71-→-reveal-→-play-→-game-over-chromium/trace.zip
+
+    ────────────────────────────────────────────────────────────────────────────────────────────────
+
+  1 failed
+    [chromium] › tests/playwright/shithead.spec.js:13:3 › Shithead Card Game - Multi-Player › two players: setup → swap → reveal → play → game over 
