@@ -208,9 +208,9 @@ function handleMessage(ws, role, msg, room) {
       broadcastLobbyUpdate(room);
       broadcastVoteUpdate(room);
 
-      // Legacy PLAYER_JOINED for old host display
+      // Broadcast PLAYER_JOINED to all players so they can see each other in lobby
       const playerNames = [...room.players.keys()];
-      broadcastToDisplays(room, { type: 'PLAYER_JOINED', players: playerNames, playerCount: room.players.size });
+      broadcastAll(room, { type: 'PLAYER_JOINED', players: playerNames, playerCount: room.players.size });
       break;
     }
 
