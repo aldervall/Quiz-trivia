@@ -701,7 +701,18 @@
     }
   }
 
-  function send(msg) { if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg)); }
+  function send(msg) {
+    if (!ws) {
+      console.log(`[Send] ERROR: ws is null`);
+      return;
+    }
+    if (ws.readyState !== 1) {
+      console.log(`[Send] ERROR: ws.readyState=${ws.readyState}, expected 1`);
+      return;
+    }
+    ws.send(JSON.stringify(msg));
+    console.log(`[Send] Sent ${msg.type}`);
+  }
 
   // ── Screens ────────────────────────────────────────────────────────────────
   function show(id) {
@@ -832,6 +843,7 @@
 
   function onSwapClick(zone, el) {
     const id = el.dataset.id;
+    console.log(`[Click] onSwapClick: zone=${zone}, id=${id}, currentSelected=hand:${swapSelected.hand},faceUp:${swapSelected.faceUp}`);
     if (zone === 'hand') {
       if (swapSelected.hand === id) { swapSelected.hand = null; } else { swapSelected.hand = id; }
       GNSound.select(); GN.haptic('tick');
@@ -839,8 +851,17 @@
       if (swapSelected.faceUp === id) { swapSelected.faceUp = null; } else { swapSelected.faceUp = id; }
       GNSound.select(); GN.haptic('tick');
     }
+    console.log(`[Click]   After selection: hand=${swapSelected.hand}, faceUp=${swapSelected.faceUp}`);
     if (swapSelected.hand && swapSelected.faceUp) {
-      send({ type: 'SHITHEAD_SWAP_CARD', handCardId: swapSelected.hand, faceUpCardId: swapSelected.faceUp });
+      const msg = { type: 'SHITHEAD_SWAP_CARD', handCardId: swapSelected.hand, faceUpCardId: swapSelected.faceUp };
+      console.log(`[Click]   Both selected, about to send:`, msg);
+      console.log(`[Click]   ws=${ws ? `exists, readyState=${ws.readyState}` : 'null'}`);
+      try {
+        send(msg);
+        console.log(`[Click]   send() returned`);
+      } catch (err) {
+        console.log(`[Click]   ERROR in send():`, err);
+      }
       swapSelected = { hand: null, faceUp: null };
     }
   }
