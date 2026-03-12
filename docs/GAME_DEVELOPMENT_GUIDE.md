@@ -391,6 +391,84 @@ ws.onmessage = (event) => {
 
 ---
 
+## Card Games with `server/deck.js`
+
+For any card game, use the unified card deck utilities in `server/deck.js` instead of reimplementing shuffling and dealing:
+
+```javascript
+const { createDeck, shuffle, deal } = require('../../server/deck.js');
+
+class MyCardGameController extends GameController {
+  start() {
+    // Create and shuffle a standard 52-card deck
+    this.deck = shuffle(createDeck());
+
+    // Deal 5 cards to each player
+    const hands = deal(this.deck, this.players.size, 5);
+    let i = 0;
+    for (const [username, player] of this.players) {
+      player.hand = hands[i++];
+    }
+
+    this.transitionTo('COUNTDOWN');
+  }
+}
+```
+
+**Deck utilities:**
+- `createDeck()` — Returns a standard 52-card deck: `[{suit, rank}, ...]`
+- `shuffle(deck)` — Fisher-Yates shuffle, returns shuffled deck
+- `deal(deck, playerCount, cardsPerPlayer)` — Removes and returns array of hands
+
+**Benefits:**
+- Consistent card representation across all card games
+- No code duplication
+- Easy to extend for custom card sets (add/remove cards before shuffling)
+
+---
+
+## Chat Integration
+
+Games can emit chat-compatible messages to integrate with the lobby chat system. This is useful for:
+- Game announcements ("Game started!", "Alice won!")
+- Turn notifications ("It's Bob's turn")
+- Event highlights ("All players answered!")
+
+**Pattern:**
+
+In your GameController, emit chat messages via the room's broadcast:
+
+```javascript
+const { broadcastAll } = require('../../server/broadcast.js');
+
+class MyGameController extends GameController {
+  someMethod(room) {
+    // Emit a game event as a chat message
+    broadcastAll(room, {
+      type: 'CHAT_MESSAGE',
+      username: 'System',
+      avatar: '🎮',
+      text: 'Alice answered the question!',
+      timestamp: Date.now()
+    });
+  }
+}
+```
+
+**Notes:**
+- Use `username: 'System'` or `'Game'` for system announcements
+- Keep text under 200 characters
+- Chat messages appear in both player phones and TV display
+- Messages are added to room's `chatHistory` automatically by handlers.js
+- Rate limiting is enforced at the handler level (3 messages per 5s per player)
+
+**Example uses:**
+- "Round 1 complete! 4 players answered."
+- "Waiting for player to play a card..."
+- "🎉 Alice won the round!"
+
+---
+
 ## Troubleshooting
 
 **Game doesn't start**

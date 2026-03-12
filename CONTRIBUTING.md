@@ -22,14 +22,11 @@ Thank you for your interest in contributing! This document covers how to set up 
 
 ```bash
 # Clone the repository
-git clone https://github.com/aldervall/Quiz-trivia.git
-cd Quiz-trivia
+git clone https://github.com/small-hours-games/small-hours.git
+cd small-hours
 
 # Install dependencies
 npm install
-
-# (Optional) Copy and customise environment variables
-cp .env.example .env
 
 # Start the server
 npm start
@@ -46,40 +43,64 @@ small-hours/
 ├── server.js              # Entry point: Express, WebSocket upgrade, game auto-loader
 ├── server/                # Server-side modules
 │   ├── GameController.js  # Base class for all games (state machine, lifecycle)
+│   ├── gameRegistry.js    # Auto-discovery of games in games/ directory
 │   ├── rooms.js           # Room registry (Map), room creation, player management
 │   ├── handlers.js        # WebSocket message dispatch, player lifecycle, game transitions
 │   ├── broadcast.js       # Broadcast helpers (all clients, display-only, single client)
-│   ├── persistence.js     # Game history and leaderboard storage
+│   ├── persistence.js     # Game history and leaderboard storage (async)
 │   ├── BotController.js   # Bot player logic for solo play
 │   ├── QuizController.js  # Quiz game logic
-│   └── ShitHeadController.js # Shithead game logic (legacy)
-├── games/                 # Modern GameController-based games
+│   ├── ShitHeadController.js # Shithead game logic
+│   └── deck.js            # Card deck utilities (shuffle, deal, create)
+├── games/                 # GameController-based games
 │   ├── guess/             # Number Guess (reference implementation)
 │   │   ├── server.js      # GuessController extending GameController
-│   │   └── host/index.html, player/index.html
+│   │   ├── host/index.html
+│   │   └── player/index.html
 │   ├── spy/               # Spy game (adapter pattern)
+│   │   ├── server.js      # SpyGameController adapter
+│   │   ├── server/game.js # Game logic module
+│   │   ├── host/index.html
+│   │   └── player/index.html
 │   ├── lyrics/            # Lyrics game (adapter pattern)
+│   │   ├── server.js      # LyricsGameController adapter
+│   │   ├── server/game.js # Game logic module
+│   │   ├── host/index.html
+│   │   └── player/index.html
 │   └── cah/               # Cards Against Humanity (adapter pattern)
+│       ├── server.js      # CAHGameController adapter
+│       ├── game-logic.js  # Game logic module
+│       ├── host/index.html
+│       └── player/index.html
 ├── public/                # Static front-end
 │   ├── index.html         # Landing page (create/join room)
 │   ├── player/            # Player lobby and shared player UI
 │   │   └── index.html
 │   ├── host/              # Host/TV display
 │   │   └── index.html
-│   ├── shared/            # Shared utilities (WebSocket, sounds, confetti)
-│   │   └── theme.css      # Tailwind + custom theme
-│   └── games/             # Legacy game UIs (deprecated)
+│   ├── shared/            # Shared utilities
+│   │   ├── theme.css      # CSS design system (typography, spacing, components)
+│   │   ├── utils.js       # WebSocket, DOM, and UI helpers
+│   │   ├── sounds.js      # Web Audio sound engine
+│   │   └── confetti.js    # Canvas particle effects
+│   └── games/             # Legacy game UIs (deprecated, kept for compatibility)
 ├── questions.js           # Question fetching (local DB → OpenTDB API)
 ├── local-db.js            # Local question cache (data/questions-db.json)
 ├── test/                  # Unit tests (Node.js built-in test runner)
-├── tests/                 # E2E browser tests (Playwright, E2E smoke tests)
+├── tests/                 # E2E browser tests (Puppeteer automation)
 │   ├── fullgame.mjs       # Full 10-question game flow
 │   ├── continue.mjs       # Two rounds with scoring
-│   ├── restart.mjs        # Game restart flow
-│   └── playwright/        # Playwright test suite
+│   └── restart.mjs        # Game restart flow
+├── data/                  # Persistent data
+│   ├── gameHistory.json   # JSONL game records
+│   ├── playerStats.json   # Leaderboard and player statistics
+│   └── questions-db.json  # Cached trivia questions
 ├── docs/                  # Documentation
-│   ├── GAME_DEVELOPMENT_GUIDE.md
-│   └── IMPLEMENTATION_COMPLETE.md
+│   ├── GAME_DEVELOPMENT_GUIDE.md   # Complete game development reference
+│   └── IMPLEMENTATION_COMPLETE.md  # Architecture notes
+├── certs/                 # HTTPS certificates (optional, auto-detected at startup)
+├── CLAUDE.md              # AI agent contribution guide
+├── PHILOSOPHY.md          # Small Hours core vision and values
 ├── .env.example           # Environment variable template
 ├── Dockerfile             # Container build
 └── docker-compose.yml
@@ -107,34 +128,50 @@ Key architectural decisions:
 
 ## Making a Change — Walkthrough
 
-Below is a minimal example of adding a new player command `RESET_SCORES` that zeroes all player scores without restarting the game.
+Below is a minimal example of adding **lobby chat** — the new real-time messaging system. Chat messages are sent from player phones to the server, which broadcasts them to all players and the TV display.
 
-**1. Add the game logic in `game.js`:**
-
-```js
-resetScores() {
-  for (const player of this.players.values()) {
-    player.score = 0;
-    player.streak = 0;
-  }
-  this._broadcast({ type: 'SCORES_RESET', scores: this._buildScores() });
-}
-```
-
-**2. Handle the new message type in `server/handlers.js` inside the player switch:**
+**1. Handle the new message type in `server/handlers.js` inside the player switch:**
 
 ```js
-case 'RESET_SCORES': {
+case 'CHAT_MESSAGE': {
   const username = room.wsToUsername.get(ws);
-  if (username !== room.adminUsername) break;
-  if (room.game) room.game.resetScores();
+  if (!username || !msg.text) break;
+
+  // Sanitize and limit
+  const text = msg.text.trim().substring(0, 200);
+  if (!text) break;
+
+  // Rate limit: max 3 messages per 5 seconds per player
+  const rateLimitEntry = room.chatRateLimit.get(username) || { count: 0, resetTime: 0 };
+  if (Date.now() >= rateLimitEntry.resetTime) {
+    rateLimitEntry.count = 0;
+    rateLimitEntry.resetTime = Date.now() + 5000;
+  }
+  if (rateLimitEntry.count >= 3) break;
+  rateLimitEntry.count++;
+  room.chatRateLimit.set(username, rateLimitEntry);
+
+  // Add to history (keep last 50)
+  const player = room.players.get(username);
+  const chatMsg = { type: 'CHAT_MESSAGE', username, avatar: player.avatar, text, timestamp: Date.now() };
+  room.chatHistory.push(chatMsg);
+  if (room.chatHistory.length > 50) room.chatHistory.shift();
+
+  // Broadcast to all
+  broadcastAll(room, chatMsg);
   break;
 }
 ```
 
-**3. Trigger the command from the player UI in `public/group/`.**
+**2. Add chat history to lobby state in `server/rooms.js`:**
 
-**4. Test manually:** open the landing page, create a room, open the display and player views, start a game, verify scores reset correctly.
+The room schema already includes `chatHistory` and `chatRateLimit` — they're sent to players when they join via `buildLobbyState()`.
+
+**3. Render chat in the player UI (`public/player/index.html`):**
+
+Display incoming chat messages and add an input form. Style with the chat-message component from `public/shared/theme.css`.
+
+**4. Test manually:** open the landing page, create a room, join with 2+ players, send chat messages from each player, verify they appear on all player phones and the TV display without rate-limit block.
 
 ---
 
