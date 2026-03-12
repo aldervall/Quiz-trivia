@@ -21,6 +21,8 @@ class ShiteadController extends GameController {
     this.playTimeout = 10000       // 10s per move
     this.swapStartTime = null
     this.currentPlayerTurnStart = null
+
+    console.log('[Shithead] ShiteadController instance created')
   }
 
   processBotSwaps() {
@@ -48,26 +50,35 @@ class ShiteadController extends GameController {
     this._initializeDeck()
     this._dealCards()
     this.transitionTo('SETUP')
+    console.log(`[Shithead] Game started. Players: ${this.players.size}, Phase: ${this.phase}`)
   }
 
   tick() {
     switch (this.phase) {
       case 'SETUP':
+        const setupElapsed = this.elapsedInPhase()
+        console.log(`[Shithead] tick() SETUP: phaseStartTime=${this.phaseStartTime}, elapsed=${setupElapsed}ms, isPhaseExpired=${this.isPhaseExpired(5000)}, check=(${setupElapsed} >= 5000)`)
         if (this.isPhaseExpired(5000)) {  // 5s setup time
+          console.log(`[Shithead] SETUP phase expired (${setupElapsed}ms), transitioning to SWAP`)
           this.transitionTo('SWAP')
           this.swapStartTime = this.phaseStartTime
         }
         break
 
       case 'SWAP':
+        const swapElapsed = this.elapsedInPhase()
+        console.log(`[Shithead] tick() SWAP: elapsed=${swapElapsed}ms, isPhaseExpired=${this.isPhaseExpired(this.swapDuration)}`)
         if (this.isPhaseExpired(this.swapDuration)) {
+          console.log(`[Shithead] SWAP phase expired (${swapElapsed}ms), transitioning to REVEAL`)
           this._revealCards()
           this.transitionTo('REVEAL')
         }
         break
 
       case 'REVEAL':
+        const revealElapsed = this.elapsedInPhase()
         if (this.isPhaseExpired(3000)) {  // 3s to show cards
+          console.log(`[Shithead] REVEAL phase expired (${revealElapsed}ms), transitioning to PLAY`)
           this._startPlay()
           this.transitionTo('PLAY')
         }
@@ -81,6 +92,7 @@ class ShiteadController extends GameController {
         }
         // Check if all players have finished
         if (this._allPlayersFinished()) {
+          console.log(`[Shithead] All players finished, transitioning to GAME_OVER`)
           this.transitionTo('GAME_OVER')
         }
         break
@@ -94,6 +106,7 @@ class ShiteadController extends GameController {
   }
 
   getState() {
+    console.log(`[Shithead] getState() called, phase=${this.phase}, players=${this.players.size}`)
     const playerArray = this.getAllPlayers()
 
     // Build player states for Shithead
