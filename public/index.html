@@ -11,7 +11,7 @@
       align-items: center;
       justify-content: center;
       min-height: 100svh;
-      padding: 2rem 1rem;
+      padding: var(--space-4);
       position: relative;
     }
 
@@ -26,12 +26,12 @@
       -webkit-backdrop-filter: blur(20px);
       border: 1px solid rgba(255, 255, 255, 0.06);
       border-radius: var(--radius-xl);
-      padding: 2.5rem 2rem;
-      width: min(480px, calc(100vw - 2rem));
+      padding: clamp(1.5rem, 5vw, 3rem) clamp(1.5rem, 5vw, 2.5rem);
+      width: min(500px, calc(100vw - 2rem));
       display: flex;
       flex-direction: column;
       align-items: stretch;
-      gap: 1.5rem;
+      gap: var(--space-6);
       box-shadow: var(--shadow-card), 0 0 120px rgba(127, 90, 240, 0.08);
       overflow: hidden;
     }
@@ -68,8 +68,9 @@
 
     .create-btn {
       width: 100%;
-      padding: 1.1rem;
-      font-size: 1.25rem;
+      min-height: 56px;
+      padding: clamp(0.9rem, 2vw, 1.2rem);
+      font-size: clamp(1.05rem, 2.5vw, 1.25rem);
       font-weight: 800;
       background: linear-gradient(135deg, var(--accent), var(--accent2));
       color: #fff;
@@ -100,8 +101,9 @@
 
     .tv-btn {
       width: 100%;
-      padding: 0.9rem 1rem;
-      font-size: 1.05rem;
+      min-height: 56px;
+      padding: clamp(0.85rem, 2vw, 1rem);
+      font-size: clamp(1rem, 2.5vw, 1.1rem);
       font-weight: 700;
       background: linear-gradient(135deg, var(--neon2), rgba(127, 90, 240, 0.7));
       color: #fff;
@@ -142,8 +144,9 @@
     #room-code-input {
       flex: 1;
       min-width: 0;
-      padding: 0.9rem 1rem;
-      font-size: 1.4rem;
+      min-height: 48px;
+      padding: clamp(0.75rem, 2vw, 1rem);
+      font-size: clamp(1.15rem, 2vw, 1.4rem);
       font-weight: 900;
       letter-spacing: 0.3em;
       text-align: center;
@@ -153,7 +156,7 @@
       border: 2px solid rgba(255, 255, 255, 0.08);
       border-radius: var(--radius-md);
       outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
+      transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
     }
     #room-code-input:focus {
       border-color: var(--accent);
@@ -163,12 +166,13 @@
       color: var(--text-muted);
       letter-spacing: 0.1em;
       font-weight: 400;
-      font-size: 1rem;
+      font-size: clamp(0.875rem, 1.5vw, 1rem);
     }
 
     .join-btn {
-      padding: 0.9rem 1.6rem;
-      font-size: 1.15rem;
+      min-height: 48px;
+      padding: clamp(0.75rem, 2vw, 1rem) clamp(1.2rem, 2vw, 1.6rem);
+      font-size: clamp(1rem, 2vw, 1.15rem);
       font-weight: 800;
       background: linear-gradient(135deg, var(--correct), var(--neon));
       color: #fff;
