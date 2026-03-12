@@ -494,15 +494,23 @@
 
 <!-- WAITING -->
 <div id="waiting" class="screen">
-  <div class="big-emoji">👋</div>
   <h2 id="waiting-name">Hi there!</h2>
   <p id="waiting-status">Waiting for other players…</p>
+
+  <!-- Player List -->
+  <div id="players-section" style="width: 100%; background: rgba(255,255,255,0.05); border-radius: 0.5rem; padding: 1rem; margin: 1rem 0;">
+    <h3 style="margin: 0 0 0.75rem 0; font-size: 0.9rem; color: #999; text-transform: uppercase;">Players</h3>
+    <div id="players-list" style="display: flex; flex-direction: column; gap: 0.5rem;">
+      <div style="color: #666; font-size: 0.85rem; text-align: center; padding: 0.75rem;">No players yet</div>
+    </div>
+  </div>
+
   <div id="waiting-spinner" style="display: flex; gap: 0.5rem; justify-content: center;">
     <span class="pulse-dot"></span>
     <span class="pulse-dot"></span>
     <span class="pulse-dot"></span>
   </div>
-  <p id="waiting-players" style="color:#666; font-size:0.85rem;"></p>
+  <p id="waiting-players" style="color:#666; font-size:0.85rem; display:none;"></p>
 
   <!-- Game menu for admin only -->
   <div id="admin-game-menu" style="display: none; width: 100%; gap: 0.75rem; margin-top: 1rem;">
@@ -865,6 +873,13 @@
         document.getElementById('waiting-name').textContent = P('hiName', myUsername);
         show('waiting'); // Show lobby screen first, not vote screen
 
+        // Initialize player list with self
+        const playersList = document.getElementById('players-list');
+        playersList.innerHTML = `<div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: rgba(255,255,255,0.03); border-radius: 0.25rem; font-size: 0.9rem;">
+          <span style="width: 24px; height: 24px; background: #7f5af0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; flex-shrink: 0;">👤</span>
+          <span>${myUsername}</span>
+        </div>`;
+
         // Show game menu for admin only
         if (msg.isAdmin) {
           document.getElementById('admin-game-menu').style.display = 'flex';
@@ -876,9 +891,20 @@
         }
         break;
 
-      case 'PLAYER_JOINED':
+      case 'PLAYER_JOINED': {
+        // Build player list display
+        const playersList = document.getElementById('players-list');
+        if (msg.players && Array.isArray(msg.players)) {
+          playersList.innerHTML = msg.players.map(name =>
+            `<div style="display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem; background: rgba(255,255,255,0.03); border-radius: 0.25rem; font-size: 0.9rem;">
+              <span style="width: 24px; height: 24px; background: #7f5af0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem; flex-shrink: 0;">👤</span>
+              <span>${name}</span>
+            </div>`
+          ).join('');
+        }
         document.getElementById('waiting-players').textContent = P('players', msg.playerCount);
         break;
+      }
 
       case 'GAME_FETCHING': {
         const fromGameOver = document.getElementById('gameover').classList.contains('active');
