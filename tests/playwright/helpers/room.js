@@ -15,29 +15,21 @@ async function createRoom(request) {
 
 /**
  * Join a room as a player.
- * Navigates to /player/:code, fills in room code and username, clicks join.
- * After JOIN_OK, either vote screen (Quiz mode) or waiting screen appears.
+ * Navigates to /player/?room=CODE, fills in username, clicks join.
+ * After JOIN_OK, the waiting screen appears (with game menu visible for admin).
  * @param {import('@playwright/test').Page} page
  * @param {string} code - 4-letter room code
  * @param {string} name - player display name
  */
 async function joinRoom(page, code, name) {
-  // Navigate with room code in query parameter (path param alone doesn't auto-extract the code)
+  // Navigate with room code in query parameter
   await page.goto(`/player/?room=${code}`);
-  // Room input should be pre-filled from URL, but fill username
+  // Fill username
   await page.locator('#username-input').fill(name);
   await page.locator('#join-btn').click();
 
-  // After JOIN_OK, either vote screen (Quiz) or waiting screen appears
-  // Use Promise.any to wait for the first one that succeeds
-  try {
-    await Promise.any([
-      page.locator('#vote.active').waitFor({ state: 'visible', timeout: 8_000 }),
-      page.locator('#waiting.active').waitFor({ state: 'visible', timeout: 8_000 }),
-    ]);
-  } catch (e) {
-    throw new Error('Neither vote nor waiting screen appeared after join within 8s');
-  }
+  // After JOIN_OK, waiting screen appears
+  await page.locator('#waiting.active').waitFor({ state: 'visible', timeout: 10_000 });
 }
 
 /**

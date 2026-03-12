@@ -8,7 +8,7 @@ module.exports = defineConfig({
   workers: 1,
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   use: {
-    baseURL: 'https://localhost:3000',
+    baseURL: 'https://127.0.0.1:3000',  // Use IPv4 explicitly (avoid IPv6 issues)
     trace: 'retain-on-failure',
     headless: true,
     ignoreHTTPSErrors: true,  // Allow self-signed certificates
@@ -19,11 +19,12 @@ module.exports = defineConfig({
       use: { ...devices['Desktop Chrome'] },
     },
   ],
-  // webServer disabled - start npm start manually before running tests
+  // Note: Start server manually with `npm start` in another terminal
+  // WebServer is disabled due to issues with HTTPS certificate validation
   // webServer: {
   //   command: 'npm start',
-  //   url: 'http://localhost:3000/health',
-  //   reuseExistingServer: false,
-  //   timeout: 30_000,
+  //   url: 'https://localhost:3000/health',
+  //   reuseExistingServer: true,
+  //   timeout: 60_000,
   // },
 });

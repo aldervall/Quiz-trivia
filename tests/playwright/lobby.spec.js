@@ -21,8 +21,8 @@ test.describe('Lobby', () => {
   test('create room button navigates to player lobby', async ({ page }) => {
     await page.goto('/');
     await page.locator('#create-btn').click();
-    // Should navigate to /player/:code
-    await page.waitForURL(/\/player\/[A-Z]{4}/, { timeout: 10_000 });
+    // Should navigate to /player/?room=CODE (query parameter format)
+    await page.waitForURL(/\/player\/\?room=[A-Z]{4}/, { timeout: 10_000 });
   });
 
   test('two players can join same room', async ({ request, browser }) => {
@@ -35,13 +35,9 @@ test.describe('Lobby', () => {
     await joinRoom(p1, code, 'Alice');
     await joinRoom(p2, code, 'Bob');
 
-    // Both should see the waiting screen
-    await expect(p1.locator('#waiting')).toBeVisible();
-    await expect(p2.locator('#waiting')).toBeVisible();
-
-    // Verify vote screen is visible (category selection)
-    await expect(p1.locator('#vote')).toBeVisible();
-    await expect(p2.locator('#vote')).toBeVisible();
+    // Both should see the waiting screen with game menu for admin
+    await expect(p1.locator('#waiting.active')).toBeVisible();
+    await expect(p2.locator('#waiting.active')).toBeVisible();
 
     await ctx1.close();
     await ctx2.close();
@@ -57,10 +53,12 @@ test.describe('Lobby', () => {
     await joinRoom(p1, code, 'Alice');
     await joinRoom(p2, code, 'Bob');
 
-    // Player list should show both players
-    // Admin will have crown indicator (👑)
-    await expect(p1.locator('[data-player-name="Alice"]')).toBeVisible();
-    await expect(p1.locator('[data-player-name="Bob"]')).toBeVisible();
+    // Admin (p1) should see game menu
+    await expect(p1.locator('#admin-game-menu')).toHaveCSS('display', /flex|block/);
+
+    // Non-admin (p2) should not see game menu
+    const gameMenuP2 = await p2.locator('#admin-game-menu').evaluate(el => window.getComputedStyle(el).display);
+    expect(gameMenuP2).toBe('none');
 
     await ctx1.close();
     await ctx2.close();

@@ -14,7 +14,11 @@ test.describe('Quiz Game', () => {
     await joinRoom(p1, code, 'Alice');
     await joinRoom(p2, code, 'Bob');
 
-    // Both players must vote for categories before quiz can start
+    // Admin clicks "Quiz" button from game menu (or uses startMiniGame)
+    await startMiniGame(p1, 'quiz');
+    await p1.waitForTimeout(500);
+
+    // Vote screen should appear after START_MINI_GAME
     // Wait for vote buttons and vote for 3 categories each
     async function voteForCategories(page) {
       await page.locator('.vote-cat-btn').first().waitFor({ state: 'visible', timeout: 10_000 });
@@ -30,16 +34,7 @@ test.describe('Quiz Game', () => {
     await voteForCategories(p2);
     await p1.waitForTimeout(1000);
 
-    // Start quiz
-    await startMiniGame(p1, 'quiz');
-    await p1.waitForTimeout(500);
-
-    // Wait for quiz to start
-    // First the waiting screen appears during GAME_FETCHING/GAME_STARTING (includes question fetching which can take time)
-    await waitForScreen(p1, 'waiting', 30_000);
-    await waitForScreen(p2, 'waiting', 30_000);
-
-    // Wait longer for countdown and question to appear (countdown is 3s, but questions need to be fetched from API)
+    // Wait longer for countdown and question to appear (countdown is 3s, questions need to be fetched from API)
     await waitForScreen(p1, 'question', 30_000);
     await waitForScreen(p2, 'question', 30_000);
 
@@ -76,7 +71,15 @@ test.describe('Quiz Game', () => {
 
     await joinRoom(p1, code, 'Solo');
 
-    // Vote for categories first
+    // Start quiz with very few questions
+    await p1.evaluate((type) => {
+      // eslint-disable-next-line no-undef
+      send({ type: 'START_MINI_GAME', gameType: type, questionCount: 1 });
+    }, 'quiz');
+
+    await p1.waitForTimeout(500);
+
+    // Vote for categories (will appear after START_MINI_GAME)
     await p1.locator('.vote-cat-btn').first().waitFor({ state: 'visible', timeout: 10_000 });
     const buttons = await p1.locator('.vote-cat-btn').all();
     for (let i = 0; i < 3 && i < buttons.length; i++) {
@@ -86,15 +89,7 @@ test.describe('Quiz Game', () => {
     await p1.locator('#vote-submit-btn').click();
     await p1.waitForTimeout(1000);
 
-    // Start quiz with very few questions
-    await p1.evaluate((type) => {
-      // eslint-disable-next-line no-undef
-      send({ type: 'START_MINI_GAME', gameType: type, questionCount: 1 });
-    }, 'quiz');
-
-    await p1.waitForTimeout(500);
-    // Wait for waiting screen, then question screen (questions take time to fetch from API)
-    await waitForScreen(p1, 'waiting', 30_000);
+    // Wait for question screen (questions take time to fetch from API)
     await waitForScreen(p1, 'question', 30_000);
 
     // Answer the single question
