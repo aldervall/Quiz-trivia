@@ -160,43 +160,109 @@ class ShiteadController extends GameController {
   }
 
   handlePlayerAction(username, data) {
-    if (this.phase !== 'PLAY') return
+    // Returns: true if play succeeded, false if validation failed, undefined if phase invalid
+    if (this.phase !== 'PLAY') {
+      console.log(`[Shithead][PLAY][ACTION_INVALID]: ${username} attempted action in wrong phase (${this.phase})`)
+      return false
+    }
 
     const player = this.players.get(username)
-    if (!player || username !== this.getCurrentPlayerUsername()) return
+    if (!player) {
+      console.log(`[Shithead][PLAY][ACTION_INVALID]: ${username} not found in players`)
+      return false
+    }
+    if (username !== this.getCurrentPlayerUsername()) {
+      const currentPlayer = this.getCurrentPlayerUsername()
+      console.log(`[Shithead][PLAY][ACTION_INVALID]: ${username} played out of turn (current: ${currentPlayer})`)
+      return false
+    }
 
-    const { card } = data
+    const { cardIds, cardId } = data
+
+    // Handle single card from face-down
+    if (cardId) {
+      // TODO: implement face-down play logic (for now, reject)
+      console.log(`[Shithead][PLAY][ACTION_INVALID]: ${username} attempted face-down play (not yet implemented)`)
+      return false
+    }
+
+    // Handle multiple cards from hand
+    if (!cardIds || !Array.isArray(cardIds) || cardIds.length === 0) {
+      console.log(`[Shithead][PLAY][ACTION_INVALID]: ${username} sent invalid cardIds: ${JSON.stringify(cardIds)}`)
+      return false
+    }
+
+    // For now, just play the first card (Shithead rules: play single or matching ranks)
+    // This simplified logic can be enhanced later
+    const firstCardId = cardIds[0]
+    const hand = player.cardHand
+    const cardIndex = hand.findIndex(c => c.id === firstCardId)
+
+    if (cardIndex === -1) {
+      console.log(`[Shithead][PLAY][ACTION_INVALID]: ${username} card not in hand (id=${firstCardId})`)
+      return false
+    }
+
+    const card = hand[cardIndex]
 
     if (this._isValidPlay(card)) {
       this.pile.push(card)
-      this._removeCardFromPlayer(player, card)
+      hand.splice(cardIndex, 1)
       // Replenish hand from deck if needed
       while (player.cardHand.length < 3 && this.deck.length > 0) {
         player.cardHand.push(this.deck.pop())
       }
+      console.log(`[Shithead][PLAY][SUCCESS]: ${username} played ${card.rank}${card.suit}, hand=${player.cardHand.length}, pile=${this.pile.length}`)
       this._advanceToNextPlayer()
       this.currentPlayerTurnStart = Date.now()
+      return true
+    } else {
+      const topCard = this.pile.length > 0 ? this.pile[this.pile.length - 1] : null
+      const rankOrder = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A']
+      const topRank = topCard ? topCard.rank : 'none'
+      console.log(`[Shithead][PLAY][ACTION_INVALID]: ${username} played invalid card ${card.rank}${card.suit} (pile top: ${topRank}, rankOrder allows: ${card.rank === '2' ? 'any (wild)' : `>=${topRank}`})`)
+      return false
     }
   }
 
   swapCard(username, handCardId, faceUpCardId) {
     // During SWAP phase, exchange a hand card with a face-up card
-    if (this.phase !== 'SWAP') return false
+    if (this.phase !== 'SWAP') {
+      console.log(`[Shithead][SWAP][FAIL]: ${username} attempted swap in wrong phase (${this.phase})`)
+      return false
+    }
 
     const player = this.players.get(username)
-    if (!player || !player.cardHand || !player.cardFaceUp) return false
+    if (!player) {
+      console.log(`[Shithead][SWAP][FAIL]: ${username} not found in players`)
+      return false
+    }
+    if (!player.cardHand || !player.cardFaceUp) {
+      console.log(`[Shithead][SWAP][FAIL]: ${username} missing card arrays (hand=${!!player.cardHand}, faceUp=${!!player.cardFaceUp})`)
+      return false
+    }
 
     // Find cards by stable id
     const handIdx    = player.cardHand.findIndex(c => c.id === handCardId)
     const faceUpIdx  = player.cardFaceUp.findIndex(c => c.id === faceUpCardId)
 
-    if (handIdx === -1 || faceUpIdx === -1) return false
+    if (handIdx === -1) {
+      console.log(`[Shithead][SWAP][FAIL]: ${username} hand card not found (id=${handCardId}, available=${player.cardHand.map(c => c.id).join(',')})`)
+      return false
+    }
+    if (faceUpIdx === -1) {
+      console.log(`[Shithead][SWAP][FAIL]: ${username} face-up card not found (id=${faceUpCardId}, available=${player.cardFaceUp.map(c => c.id).join(',')})`)
+      return false
+    }
 
     // Swap the cards
+    const handCard = player.cardHand[handIdx]
+    const faceUpCard = player.cardFaceUp[faceUpIdx]
     const temp = player.cardHand[handIdx]
     player.cardHand[handIdx] = player.cardFaceUp[faceUpIdx]
     player.cardFaceUp[faceUpIdx] = temp
 
+    console.log(`[Shithead][SWAP][SUCCESS]: ${username} swapped ${handCard.rank}${handCard.suit} for ${faceUpCard.rank}${faceUpCard.suit}`)
     return true
   }
 
@@ -289,8 +355,15 @@ class ShiteadController extends GameController {
   }
 
   _advanceToNextPlayer() {
+    if (this.playerOrder.length === 0) {
+      console.warn(`[Shithead][TURN][WARNING]: No players in playerOrder, cannot advance turn`)
+      return
+    }
+    const oldPlayer = this.playerOrder[this.currentPlayerIndex] || 'unknown'
     this.currentPlayerIndex = (this.currentPlayerIndex + 1) % this.playerOrder.length
+    const newPlayer = this.playerOrder[this.currentPlayerIndex]
     this.currentPlayerTurnStart = Date.now()
+    console.log(`[Shithead][TURN]: Advanced from ${oldPlayer} to ${newPlayer} (index: ${this.currentPlayerIndex}/${this.playerOrder.length})`)
   }
 
   _isValidPlay(card) {
@@ -311,19 +384,25 @@ class ShiteadController extends GameController {
     let idx = player.cardHand.findIndex(c => c.rank === card.rank && c.suit === card.suit)
     if (idx !== -1) {
       player.cardHand.splice(idx, 1)
+      console.log(`[Shithead][REMOVE]: Card ${card.rank}${card.suit} removed from hand (player=${player.username})`)
       return
     }
 
     idx = player.cardFaceUp.findIndex(c => c.rank === card.rank && c.suit === card.suit)
     if (idx !== -1) {
       player.cardFaceUp.splice(idx, 1)
+      console.log(`[Shithead][REMOVE]: Card ${card.rank}${card.suit} removed from face-up (player=${player.username})`)
       return
     }
 
     idx = player.cardFaceDown.findIndex(c => c.rank === card.rank && c.suit === card.suit)
     if (idx !== -1) {
       player.cardFaceDown.splice(idx, 1)
+      console.log(`[Shithead][REMOVE]: Card ${card.rank}${card.suit} removed from face-down (player=${player.username})`)
+      return
     }
+
+    console.warn(`[Shithead][REMOVE][WARNING]: Card ${card.rank}${card.suit} not found in any pile (player=${player.username})`)
   }
 
   _allPlayersFinished() {

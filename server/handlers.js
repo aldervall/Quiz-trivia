@@ -211,19 +211,19 @@ function handleMessage(ws, role, msg, room) {
 
       // Reconnect to in-progress shithead game
       if (room.activeMiniGame === 'shithead' && room.shitheadGame) {
-        console.log(`[Join]   Shithead game active, checking for existing player ${username}`);
+        console.log(`[Shithead][Room:${room.code}][JOIN]: Checking for existing player ${username}`);
         const existingPlayer = room.shitheadGame.players.get(username);
         if (existingPlayer) {
-          console.log(`[Join]   Found existing player ${username} in shitheadGame, updating WebSocket`);
+          console.log(`[Shithead][Room:${room.code}][JOIN][RECONNECT]: Found existing player ${username}, updating WebSocket`);
           existingPlayer.ws = ws;
           // Send their current game state immediately
           const playerState = room.shitheadGame.getPlayerState(username);
           if (playerState) {
             sendTo(ws, { type: 'SHITHEAD_YOUR_STATE', ...playerState });
           }
-          console.log(`[Join]   Sent SHITHEAD_YOUR_STATE to ${username}`);
+          console.log(`[Shithead][Room:${room.code}][JOIN][SENT]: SHITHEAD_YOUR_STATE to ${username}`);
         } else {
-          console.log(`[Join]   Player ${username} not found in shitheadGame, adding as late-join`);
+          console.log(`[Shithead][Room:${room.code}][JOIN][LATE]: Player ${username} not in game, adding as late-join`);
           // Player is joining during active game - add them
           room.shitheadGame.addPlayer(username, {
             username: username,
@@ -233,7 +233,7 @@ function handleMessage(ws, role, msg, room) {
             cardFaceUp: [],
             cardFaceDown: [],
           });
-          console.log(`[Join]   Added ${username} to shitheadGame. Now ${room.shitheadGame.players.size} players`);
+          console.log(`[Shithead][Room:${room.code}][JOIN][ADDED]: ${username} to game. Total: ${room.shitheadGame.players.size}`);
           // Send current game state immediately
           const playerState = room.shitheadGame.getPlayerState(username);
           if (playerState) {
@@ -241,10 +241,10 @@ function handleMessage(ws, role, msg, room) {
           }
           const gameState = room.shitheadGame.getState();
           sendTo(ws, { type: 'GAME_STATE', ...gameState });
-          console.log(`[Join]   Sent GAME_STATE and SHITHEAD_YOUR_STATE to late-join ${username}`);
+          console.log(`[Shithead][Room:${room.code}][JOIN][SENT]: GAME_STATE and SHITHEAD_YOUR_STATE to late-join ${username}`);
         }
       } else {
-        console.log(`[Join]   Not shithead game (activeMiniGame=${room.activeMiniGame}, shitheadGame=${!!room.shitheadGame})`);
+        console.log(`[Join][${room.code}]: Not shithead game (activeMiniGame=${room.activeMiniGame}, shitheadGame=${!!room.shitheadGame})`);
       }
       broadcastLobbyUpdate(room);
       broadcastVoteUpdate(room);
@@ -334,11 +334,12 @@ function handleMessage(ws, role, msg, room) {
         }
         room.game.start();
       } else if (gameType === 'shithead') {
-        console.log(`[StartGame] Creating shitheadGame for room ${room.code}, current room.players: ${Array.from(room.players.keys()).join(', ')}`);
+        const playerList = Array.from(room.players.keys());
+        console.log(`[Shithead][Room:${room.code}][CREATE]: Creating game with ${playerList.length} players: ${playerList.join(', ')}`);
         room.game = null;  // Clear any existing game (e.g., Quiz game)
         room.shitheadGame = new ShiteadController();
         for (const [uname, p] of room.players) {
-          console.log(`[StartGame]   Adding ${uname} to shitheadGame`);
+          console.log(`[Shithead][Room:${room.code}][ADD_PLAYER]: Adding ${uname} (isBot=${p.isBot})`);
           room.shitheadGame.addPlayer(uname, {
             username: uname,
             ws: p.ws,
@@ -349,7 +350,8 @@ function handleMessage(ws, role, msg, room) {
           });
         }
         room.shitheadGame.start();
-        console.log(`[StartGame] shitheadGame started with ${room.shitheadGame.players.size} players`);
+        room.activeMiniGame = 'shithead';
+        console.log(`[Shithead][Room:${room.code}][START]: Game started with ${room.shitheadGame.players.size} players`);
       } else if (gameType === 'cah') {
         const maxRounds = Number.isInteger(msg.maxRounds) ? Math.max(1, Math.min(20, msg.maxRounds)) : 8;
         room.game = new CAHGameController(maxRounds);
@@ -587,19 +589,86 @@ function handleMessage(ws, role, msg, room) {
 
     case 'SHITHEAD_SWAP_CARD': {
       const username = room.wsToUsername.get(ws);
-      if (!username || !room.shitheadGame) break;
+      if (!username) {
+        console.log(`[Shithead][Room:${room.code}][SWAP][FAIL]: WebSocket not mapped to username`);
+        break;
+      }
+      if (!room.shitheadGame) {
+        console.log(`[Shithead][Room:${room.code}][SWAP][FAIL]: No shitheadGame instance for room`);
+        break;
+      }
       const { handCardId, faceUpCardId } = msg;
-      if (handCardId && faceUpCardId) {
-        const swapped = room.shitheadGame.swapCard(username, handCardId, faceUpCardId);
-        // If swap succeeded, send updated player state back to client
-        if (swapped) {
-          const playerState = room.shitheadGame.getPlayerState(username);
-          const response = { type: 'SHITHEAD_YOUR_STATE', ...playerState };
-          if (ws.readyState === 1) ws.send(JSON.stringify(response));
-          console.log(`[Shithead] ${username} swapped cards successfully`);
+      if (!handCardId || !faceUpCardId) {
+        console.log(`[Shithead][Room:${room.code}][SWAP][FAIL]: ${username} - missing card IDs (hand=${handCardId}, faceUp=${faceUpCardId})`);
+        break;
+      }
+      const swapped = room.shitheadGame.swapCard(username, handCardId, faceUpCardId);
+      // If swap succeeded, send updated player state back to client
+      if (swapped) {
+        const playerState = room.shitheadGame.getPlayerState(username);
+        const response = { type: 'SHITHEAD_YOUR_STATE', ...playerState };
+        if (ws.readyState === 1) ws.send(JSON.stringify(response));
+        console.log(`[Shithead][Room:${room.code}][SWAP][SUCCESS]: ${username} state updated and sent`);
+      } else {
+        console.log(`[Shithead][Room:${room.code}][SWAP][FAIL]: ${username} swap rejected by controller`);
+        sendTo(ws, { type: 'SHITHEAD_ERROR', message: 'Swap failed - card not found or invalid phase.' });
+      }
+      break;
+    }
+
+    case 'SHITHEAD_PLAY_CARDS': {
+      const username = room.wsToUsername.get(ws);
+      if (!username) {
+        console.log(`[Shithead][Room:${room.code}][PLAY][FAIL]: WebSocket not mapped to username`);
+        break;
+      }
+      if (!room.shitheadGame) {
+        console.log(`[Shithead][Room:${room.code}][PLAY][FAIL]: No shitheadGame instance`);
+        sendTo(ws, { type: 'SHITHEAD_ERROR', message: 'Game not active.' });
+        break;
+      }
+      const { cardIds } = msg;
+      if (!cardIds || !Array.isArray(cardIds) || cardIds.length === 0) {
+        console.log(`[Shithead][Room:${room.code}][PLAY][FAIL]: ${username} - no cards to play`);
+        sendTo(ws, { type: 'SHITHEAD_ERROR', message: 'Select at least one card to play.' });
+        break;
+      }
+      console.log(`[Shithead][Room:${room.code}][PLAY][ATTEMPT]: ${username} attempting to play ${cardIds.length} cards`);
+      // The controller will validate and handle the play
+      const result = room.shitheadGame.handlePlayerAction(username, { cardIds });
+      if (result === false) {
+        // Play was rejected - send error back
+        const currentPlayer = room.shitheadGame.getCurrentPlayerUsername();
+        if (username !== currentPlayer) {
+          sendTo(ws, { type: 'SHITHEAD_ERROR', message: `Not your turn. ${currentPlayer} is playing.` });
         } else {
-          console.log(`[Shithead] ${username} swap failed - invalid indices`);
+          sendTo(ws, { type: 'SHITHEAD_ERROR', message: 'Invalid play - card rank too low.' });
         }
+      }
+      break;
+    }
+
+    case 'SHITHEAD_PLAY_FACEDOWN': {
+      const username = room.wsToUsername.get(ws);
+      if (!username) {
+        console.log(`[Shithead][Room:${room.code}][PLAY_FD][FAIL]: WebSocket not mapped to username`);
+        break;
+      }
+      if (!room.shitheadGame) {
+        console.log(`[Shithead][Room:${room.code}][PLAY_FD][FAIL]: No shitheadGame instance`);
+        sendTo(ws, { type: 'SHITHEAD_ERROR', message: 'Game not active.' });
+        break;
+      }
+      const { cardId } = msg;
+      if (!cardId) {
+        console.log(`[Shithead][Room:${room.code}][PLAY_FD][FAIL]: ${username} - no card ID provided`);
+        sendTo(ws, { type: 'SHITHEAD_ERROR', message: 'Select a face-down card to play.' });
+        break;
+      }
+      console.log(`[Shithead][Room:${room.code}][PLAY_FD][ATTEMPT]: ${username} attempting to play face-down card`);
+      const result = room.shitheadGame.handlePlayerAction(username, { cardId });
+      if (result === false) {
+        sendTo(ws, { type: 'SHITHEAD_ERROR', message: 'Cannot play face-down card now.' });
       }
       break;
     }
