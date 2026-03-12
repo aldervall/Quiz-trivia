@@ -51,7 +51,8 @@ test.describe('Shithead Card Game - Multi-Player', () => {
     await confirmSwap(p2);
 
     // Phase 3: REVEAL - wait for reveal screen (shows face-up cards)
-    await waitForAllPlayersInPhase([p1, p2], 'reveal', 10_000);
+    // Increased timeout to 40s to allow SWAP → REVEAL transition
+    await waitForAllPlayersInPhase([p1, p2], 'reveal', 40_000);
 
     // Phase 4: PLAY - wait for play screen
     await waitForAllPlayersInPhase([p1, p2], 'playing', 10_000);

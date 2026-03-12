@@ -87,10 +87,35 @@ async function performCardSwap(page, handCardIndex = 0, faceUpCardIndex = 0) {
   const handCards = page.locator('#swap-hand .play-card');
   const faceUpCards = page.locator('#swap-faceup .play-card');
 
-  await handCards.nth(handCardIndex).click();
+  const handCount = await handCards.count();
+  const faceUpCount = await faceUpCards.count();
+  console.log(`[Swap Test] Found ${handCount} hand cards, ${faceUpCount} face-up cards`);
+
+  if (handCount === 0 || faceUpCount === 0) {
+    throw new Error(`Cannot perform swap: hand cards=${handCount}, face-up cards=${faceUpCount}`);
+  }
+
+  console.log(`[Swap Test] Clicking hand card ${handCardIndex}...`);
+  // Use JavaScript evaluation to ensure the click event is properly triggered
+  await page.evaluate((idx) => {
+    const cards = document.querySelectorAll('#swap-hand .play-card');
+    if (cards[idx]) {
+      cards[idx].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      console.log(`[JS] Dispatched click on hand card ${idx}`);
+    }
+  }, handCardIndex);
   await page.waitForTimeout(300);
-  await faceUpCards.nth(faceUpCardIndex).click();
+
+  console.log(`[Swap Test] Clicking face-up card ${faceUpCardIndex}...`);
+  await page.evaluate((idx) => {
+    const cards = document.querySelectorAll('#swap-faceup .play-card');
+    if (cards[idx]) {
+      cards[idx].dispatchEvent(new MouseEvent('click', { bubbles: true }));
+      console.log(`[JS] Dispatched click on faceup card ${idx}`);
+    }
+  }, faceUpCardIndex);
   await page.waitForTimeout(500);
+  console.log(`[Swap Test] Card swap completed`);
 }
 
 /**

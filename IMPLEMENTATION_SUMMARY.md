@@ -102,47 +102,56 @@ Added extensive logging throughout the stack to trace message flow:
 
 ## 📊 Test Results
 
-### Current Status
+### Current Status (Latest Run)
 ```
 Running 5 Shithead E2E Tests:
-✘ 1: Two players (120s timeout) - Attempting card clicks
-✘ 2: Three players (120s timeout) - Attempting card clicks
-✘ 3: Five players (120s timeout) - Attempting card clicks
-✘ 4: Swap mechanics (6.3s) - Cannot find .hand .card elements
-✘ 5: Playing mechanics (17s) - Cannot find .hand .card elements
+✘ 1: Two players - Progressing: SETUP → SWAP → (awaiting REVEAL)
+✘ 2: Three players - Same progress pattern
+✘ 3: Five players - Same progress pattern
+✘ 4: Swap mechanics - Same progress pattern
+✘ 5: Playing mechanics - Same progress pattern
 
 Unit Tests: ✅ 45/45 PASS
 ```
 
-### Progress Made
-- ✅ Tests now reach SWAP phase screen (previously timed out at phase screen)
-- ✅ GAME_STATE messages with phase=SWAP are being broadcast
-- ✅ Player reconnection is working
-- ✅ Messages are reaching clients
-- ⏳ Card elements not rendering in SWAP screen (final blocker)
+### Progress Made (This Session)
+- ✅ Tests now reach SWAP phase screen (both players)
+- ✅ Both players receive proper card data: `hand=3, faceUp=3`
+- ✅ GAME_STATE messages with phase=SWAP are being broadcast correctly
+- ✅ Player reconnection/late-join is working
+- ✅ Messages are reaching clients with correct card data
+- ✅ SWAP screen (#swap.active) is now visible
+- ⏳ Card clicks/swaps may not be performing (test times out waiting for REVEAL)
 
 ---
 
-## 🐛 Remaining Issue: Card Rendering in SWAP Phase
+## 🐛 Remaining Issues
 
-**Symptom:** Tests can navigate to SWAP screen but `.hand .card` elements don't exist in DOM
+### Issue #1: Card Swap Confirmation Not Progressing Game
+**Symptom:** Tests reach SWAP screen with proper card data, but timeout waiting for REVEAL phase
 
 **Evidence:**
-- Server logs confirm GAME_STATE with phase='SWAP' is broadcast
-- Client logs confirm GAME_STATE received
-- SWAP screen appears (`#swap.active` found)
-- But `.hand .card` elements cannot be found for clicking
+- Console logs show `hand=3, faceUp=3` for both players (cards are there)
+- `#swap-hand .play-card` and `#swap-faceup .play-card` selectors are correct
+- Server logs show SWAP phase lasting 30 seconds without transitioning to REVEAL
+- No logs indicate card swaps are being processed (`SHITHEAD_SWAP_CARD` messages)
 
-**Possible Causes:**
-1. renderSwap() called with empty `myState.hand` - renders nothing
-2. renderSwap() never called despite myState existing
-3. Card DOM elements not being created by renderSwap()
-4. CSS display issue hiding the cards
+**Root Cause:** Likely one of:
+1. Card click events not being fired by Playwright (timing/interaction issue)
+2. performCardSwap() waiting for cards that exist but aren't being clicked
+3. Server not receiving SHITHEAD_CONFIRM_SWAP messages from clients
 
 **Investigation Needed:**
-- Check renderSwap() console logs to see what cards are being rendered
-- Verify card count in myState when SWAP phase arrives
-- Check if hand/faceup DOM containers are being populated
+1. Add logging to client's onSwapClick() to see if clicks are registering
+2. Check server logs for SHITHEAD_SWAP_CARD messages
+3. Verify performCardSwap() is actually clicking the right elements
+4. Increase test timeout to 40s to allow full SWAP → REVEAL transition
+
+### Issue #2: Test Timing - Bob Joining Before Game Start
+**Previously Fixed:** Added 500ms delays between Alice joining, Bob joining, and game start
+- Without delays, bot was being added instead of Bob
+- With delays, both Alice and Bob properly join before game starts
+- Both now receive proper card distributions
 
 ---
 
@@ -169,26 +178,45 @@ Unit Tests: ✅ 45/45 PASS
 
 ## 🚀 Next Steps to Resolve
 
-### Immediate (Priority 1)
-1. **Check renderSwap() output** - Add logging to see what myState contains when called
-2. **Run headed test** - `npm run test:e2e -- --headed` to visually inspect
-3. **Check browser console** - Verify all logging matches expected flow
+### Immediate (Priority 1: Unblock Card Swapping)
+1. **Add click logging to onSwapClick()** - Verify clicks are being registered on client
+   ```javascript
+   function onSwapClick(zone, el) {
+     console.log(`[CardClick] ${zone} zone, card id=${el.dataset.id}`);
+     // ... rest of function
+   }
+   ```
 
-### Secondary (Priority 2)
-1. Verify card arrays have content when myState received
-2. Check if renderSwap() actually populates hand/faceup DOM elements
-3. Inspect CSS to ensure cards aren't hidden
+2. **Check server logs for swap messages** - Verify `SHITHEAD_SWAP_CARD` messages arrive
+   ```bash
+   tail -f /tmp/server.log | grep "SHITHEAD_SWAP\|SHITHEAD_CONFIRM"
+   ```
 
-### Validation Steps
+3. **Add logging to performCardSwap()** - Debug test-side card interaction
+   ```javascript
+   async function performCardSwap(page, handCardIndex = 0, faceUpCardIndex = 0) {
+     const handCards = page.locator('#swap-hand .play-card');
+     const faceUpCards = page.locator('#swap-faceup .play-card');
+     console.log(`[Swap] Found ${await handCards.count()} hand cards, ${await faceUpCards.count()} face-up cards`);
+     // ... rest of function
+   }
+   ```
+
+### Secondary (Priority 2: Extend Test Timeout)
+1. Increase REVEAL phase timeout from 10s to 40s to allow full transition
+2. Re-run tests to verify card swaps eventually complete
+
+### Validation Commands
 ```bash
 # View Playwright trace of failed test
 npx playwright show-trace test-results/shithead-*-chromium/trace.zip
 
-# Run with browser visible
+# Run with browser visible to see card clicks
 npm run test:e2e -- tests/playwright/shithead.spec.js --grep "two players" --headed
 
-# Check server logs
-npm start 2>&1 | grep -E "\[Shithead\]|\[Server\]"
+# Monitor server and test simultaneously
+terminal 1: npm start 2>&1 | grep -E "\[Shithead\]|SWAP_CARD|CONFIRM"
+terminal 2: npm run test:e2e -- tests/playwright/shithead.spec.js --grep "two players" --timeout=40000
 ```
 
 ---
