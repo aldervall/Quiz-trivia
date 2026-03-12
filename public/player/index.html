@@ -1026,6 +1026,9 @@
         lobbyState.gameSuggestions = msg.gameSuggestions || {};
         lobbyState.allReady = msg.allReady || false;
         renderLobbyState();
+      } else if (msg.type === 'MINI_GAME_STARTING') {
+        // Navigate to the game URL sent by server
+        window.location.href = msg.url;
       } else if (msg.type === 'GAME_STATE' && msg.gameType && msg.phase && msg.phase !== 'LOBBY') {
         // Game has started, navigate to game page
         window.location.href = `/games/${msg.gameType}/?room=${roomCode}`;
