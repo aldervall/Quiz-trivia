@@ -20,7 +20,7 @@ services:
 
     # Health check: docker restart if unhealthy
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:${PORT:-3001}/health"]
       interval: 30s
       timeout: 5s
       retries: 3

@@ -7,18 +7,53 @@ on:
 
 jobs:
   deploy:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
+
     steps:
+      - name: Connect to Headscale VPN
+        run: |
+          curl -fsSL https://tailscale.com/install.sh | sh
+          sudo tailscale up \
+            --login-server=https://hs.aldervall.se \
+            --authkey=${{ secrets.HEADSCALE_AUTHKEY }} \
+            --hostname=github-actions-deploy \
+            --accept-routes \
+            --timeout=30s
+
+      - name: Wait for VPN connectivity
+        run: |
+          for i in $(seq 1 10); do
+            if ping -c 1 -W 2 ${{ secrets.DEPLOY_HOST }} > /dev/null 2>&1; then
+              echo "Host reachable"
+              break
+            fi
+            echo "Attempt $i: waiting..."
+            sleep 3
+          done
+
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@master
+        uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_KEY }}
+          timeout: 60s
           script: |
+            set -e
             cd /opt/small-hours
             git pull origin main
-            npm install
-            docker compose pull
             docker compose up -d
-            echo "✓ Deployment complete"
+            echo "Deployment complete"
+
+      - name: Verify deployment health
+        run: |
+          sleep 10
+          curl --fail --silent \
+            --retry 5 --retry-delay 5 \
+            http://${{ secrets.DEPLOY_HOST }}:3001/health \
+            | grep -q '"ok":true'
+          echo "Health check passed"
+
+      - name: Disconnect from Headscale VPN
+        if: always()
+        run: sudo tailscale down
