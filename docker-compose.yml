@@ -3,8 +3,7 @@ name: small-hours
 services:
   quiz:
     container_name: small-hours
-    image: ghcr.io/small-hours-games/small-hours:latest
-    pull_policy: always
+    build: .
     restart: unless-stopped
 
     # host networking lets the server see your real LAN IP and
